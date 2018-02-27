@@ -1,0 +1,6 @@
+miniutils
+astor
+
+coveralls
+coverage
+nose
