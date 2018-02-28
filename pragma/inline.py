@@ -216,7 +216,7 @@ class InlineTransformer(TrackedContextTransformer):
             func_for_inlining = _InlineBodyTransformer(fname, fsig.parameters, n)
             fbody = list(func_for_inlining.visit_many(copy.deepcopy(fbody)))
 
-            print(self.code_blocks)
+            # print(self.code_blocks)
             cur_block = self.code_blocks[-1]
             new_code = []
 
