@@ -1,0 +1,459 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>pragma.core.transformer &mdash; pypragma 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="pypragma 0.1.0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> pypragma
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../collapse_literals.html">Collapse Literals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../deindex.html">De-index Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../unroll.html">Unroll</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../inline.html">Inlining Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../todo.html">TODO List</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">pypragma</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>pragma.core.transformer</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for pragma.core.transformer</h1><div class="highlight"><pre>
+<span></span><span class="c1"># import ast</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">import</span> <span class="nn">textwrap</span>
+
+<span class="kn">import</span> <span class="nn">astor</span>
+<span class="kn">from</span> <span class="nn">miniutils.opt_decorator</span> <span class="k">import</span> <span class="n">optional_argument_decorator</span>
+
+<span class="kn">from</span> <span class="nn">.resolve</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.stack</span> <span class="k">import</span> <span class="n">DictStack</span>
+
+
+<span class="nd">@magic_contract</span>
+<span class="k">def</span> <span class="nf">function_ast</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns ast for the given function. Gives a tuple of (ast_module, function_body, function_file</span>
+<span class="sd">    :param f: The function to parse</span>
+<span class="sd">    :type f: Callable</span>
+<span class="sd">    :return: The relevant AST code: A module including only the function definition; the func body; the func file</span>
+<span class="sd">    :rtype: tuple(Module, list(AST), str)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">f_file</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="vm">__module__</span><span class="p">]</span><span class="o">.</span><span class="vm">__file__</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+        <span class="n">f_file</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">root</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">f</span><span class="p">)),</span> <span class="n">f_file</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">root</span><span class="p">,</span> <span class="n">root</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">body</span><span class="p">,</span> <span class="n">f_file</span>
+
+
+<span class="nd">@magic_contract</span>
+<span class="k">def</span> <span class="nf">_assign_names</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gets names from a assign-to tuple in flat form, just to know what&#39;s affected</span>
+<span class="sd">    &quot;x=3&quot; -&gt; &quot;x&quot;</span>
+<span class="sd">    &quot;a,b=4,5&quot; -&gt; [&quot;a&quot;, &quot;b&quot;]</span>
+<span class="sd">    &quot;(x,(y,z)),(a,) = something&quot; -&gt; [&quot;x&quot;, &quot;y&quot;, &quot;z&quot;, &quot;a&quot;]</span>
+
+<span class="sd">    :param node: The AST node to resolve to a list of names</span>
+<span class="sd">    :type node: AST</span>
+<span class="sd">    :return: The flattened list of names referenced in this node</span>
+<span class="sd">    :rtype: iterable</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Tuple</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">elts</span><span class="p">:</span>
+            <span class="k">yield from</span> <span class="n">_assign_names</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Subscript</span><span class="p">):</span>
+        <span class="k">yield from</span> <span class="n">_assign_names</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">DebugTransformerMixin</span><span class="p">:</span>  <span class="c1"># pragma: nocover</span>
+    <span class="k">def</span> <span class="nf">visit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">orig_node_code</span> <span class="o">=</span> <span class="n">astor</span><span class="o">.</span><span class="n">to_source</span><span class="p">(</span><span class="n">node</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Starting to visit &gt;&gt; </span><span class="si">{}</span><span class="s2"> &lt;&lt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">orig_node_code</span><span class="p">))</span>
+
+        <span class="n">new_node</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">new_node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Deleted &gt;&gt;&gt; </span><span class="si">{}</span><span class="s2"> &lt;&lt;&lt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">orig_node_code</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Converted &gt;&gt;&gt; </span><span class="si">{}</span><span class="s2"> &lt;&lt;&lt; to &gt;&gt;&gt; </span><span class="si">{}</span><span class="s2"> &lt;&lt;&lt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">orig_node_code</span><span class="p">,</span> <span class="n">astor</span><span class="o">.</span><span class="n">to_source</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()))</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_node</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Converted &gt;&gt;&gt; </span><span class="si">{}</span><span class="s2"> &lt;&lt;&lt; to [[[ </span><span class="si">{}</span><span class="s2"> ]]]&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">orig_node_code</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="n">astor</span><span class="o">.</span><span class="n">to_source</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">new_node</span><span class="p">)))</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">&quot;Failed on </span><span class="si">{}</span><span class="s2"> &gt;&gt;&gt; </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">orig_node_code</span><span class="p">,</span> <span class="n">astor</span><span class="o">.</span><span class="n">dump_tree</span><span class="p">(</span><span class="n">new_node</span><span class="p">)))</span> <span class="kn">from</span> <span class="nn">ex</span>
+            <span class="c1"># print(&quot;Failed on {} &gt;&gt;&gt; {}&quot;.format(astor.dump_tree(orig_node), astor.dump_tree(new_node)))</span>
+            <span class="c1"># return orig_node</span>
+
+        <span class="k">return</span> <span class="n">new_node</span>
+
+
+<span class="k">class</span> <span class="nc">TrackedContextTransformer</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeTransformer</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctxt</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span> <span class="o">=</span> <span class="n">ctxt</span> <span class="ow">or</span> <span class="n">DictStack</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">visit_many</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nodes</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">):</span>
+                    <span class="k">yield</span> <span class="n">n</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">yield from</span> <span class="n">n</span>
+
+    <span class="k">def</span> <span class="nf">visit_Assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">erase_targets</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="c1"># print(node.value)</span>
+        <span class="c1"># TODO: Support tuple assignments</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">targets</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">targets</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
+                <span class="n">nvalue</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+                <span class="n">var</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">targets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">constant_iterable</span><span class="p">(</span><span class="n">nvalue</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="c1"># print(&quot;Setting {} = {}&quot;.format(var, val))</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">[</span><span class="n">var</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="n">resolve_literal</span><span class="p">(</span><span class="n">nvalue</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">)</span>
+                    <span class="c1"># print(&quot;Setting {} = {}&quot;.format(var, val))</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">[</span><span class="n">var</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">erase_targets</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="c1"># elif isinstance(node.targets[0], ast.Subscript):</span>
+            <span class="c1">#     targ = node.targets[0]</span>
+            <span class="c1">#     iterable = constant_iterable(targ.value, self.ctxt, False)</span>
+            <span class="c1">#     if iterable is None:</span>
+            <span class="c1">#         iterable = constant_dict(targ.value, self.ctxt)</span>
+            <span class="c1">#     if iterable is None:</span>
+            <span class="c1">#         return node</span>
+            <span class="c1">#     key = resolve_literal(targ.slice, self.ctxt)</span>
+            <span class="c1">#     if isinstance(key, ast.AST):</span>
+            <span class="c1">#         return node</span>
+            <span class="c1">#</span>
+            <span class="c1">#     nvalue = copy.deepcopy(node.value)</span>
+            <span class="c1">#     val = constant_iterable(nvalue, self.ctxt)</span>
+            <span class="c1">#     warnings.warn(&quot;Iterable assignment not fully implemented yet...&quot;)</span>
+            <span class="c1">#     if val is not None:</span>
+            <span class="c1">#         # print(&quot;Setting {} = {}&quot;.format(var, val))</span>
+            <span class="c1">#         iterable[key] = val</span>
+            <span class="c1">#     else:</span>
+            <span class="c1">#         val = resolve_literal(nvalue, self.ctxt)</span>
+            <span class="c1">#         # print(&quot;Setting {} = {}&quot;.format(var, val))</span>
+            <span class="c1">#         iterable[key] = val</span>
+            <span class="c1">#     erase_targets = False</span>
+
+        <span class="k">if</span> <span class="n">erase_targets</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">targ</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">targets</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">assgn</span> <span class="ow">in</span> <span class="n">_assign_names</span><span class="p">(</span><span class="n">targ</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">[</span><span class="n">assgn</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">node</span>
+
+    <span class="k">def</span> <span class="nf">visit_AugAssign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">assgn</span> <span class="ow">in</span> <span class="n">_assign_names</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">[</span><span class="n">assgn</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">generic_visit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_Delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">targ</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">targets</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">assgn</span> <span class="ow">in</span> <span class="n">_assign_names</span><span class="p">(</span><span class="n">targ</span><span class="p">):</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">[</span><span class="n">assgn</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">generic_visit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_FunctionDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">push</span><span class="p">({},</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">visit_many</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_AsyncFunctionDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">push</span><span class="p">({},</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">visit_many</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_ClassDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">push</span><span class="p">({},</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">visit_many</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">make_function_transformer</span><span class="p">(</span><span class="n">transformer_type</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="o">**</span><span class="n">transformer_kwargs</span><span class="p">):</span>
+    <span class="nd">@optional_argument_decorator</span>
+    <span class="nd">@magic_contract</span>
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">return_source</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">save_source</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">function_globals</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param return_source: Returns the transformed function&#39;s source code instead of compiling it</span>
+<span class="sd">        :type return_source: bool</span>
+<span class="sd">        :param save_source: Saves the function source code to a tempfile to make it inspectable</span>
+<span class="sd">        :type save_source: bool</span>
+<span class="sd">        :param function_globals: Overridden global name assignments to use when processing the function</span>
+<span class="sd">        :type function_globals: dict|None</span>
+<span class="sd">        :param kwargs: Any other environmental variables to provide during unrolling</span>
+<span class="sd">        :type kwargs: dict</span>
+<span class="sd">        :return: The transformed function, or its source code if requested</span>
+<span class="sd">        :rtype: Callable</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="nd">@magic_contract</span><span class="p">(</span><span class="n">f</span><span class="o">=</span><span class="s1">&#39;Callable&#39;</span><span class="p">,</span> <span class="n">returns</span><span class="o">=</span><span class="s1">&#39;Callable|str&#39;</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">inner</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+            <span class="n">f_mod</span><span class="p">,</span> <span class="n">f_body</span><span class="p">,</span> <span class="n">f_file</span> <span class="o">=</span> <span class="n">function_ast</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="c1"># Grab function globals</span>
+            <span class="n">glbls</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="vm">__globals__</span>
+            <span class="c1"># Grab function closure variables</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="vm">__closure__</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">glbls</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">cell_contents</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="vm">__code__</span><span class="o">.</span><span class="n">co_freevars</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="vm">__closure__</span><span class="p">)})</span>
+            <span class="c1"># Apply manual globals override</span>
+            <span class="k">if</span> <span class="n">function_globals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">glbls</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">function_globals</span><span class="p">)</span>
+            <span class="c1"># print({k: v for k, v in glbls.items() if k not in globals()})</span>
+            <span class="n">trans</span> <span class="o">=</span> <span class="n">transformer_type</span><span class="p">(</span><span class="n">DictStack</span><span class="p">(</span><span class="n">glbls</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">),</span> <span class="o">**</span><span class="n">transformer_kwargs</span><span class="p">)</span>
+            <span class="n">f_mod</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">decorator_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">f_mod</span> <span class="o">=</span> <span class="n">trans</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">f_mod</span><span class="p">)</span>
+            <span class="c1"># print(astor.dump_tree(f_mod))</span>
+            <span class="k">if</span> <span class="n">return_source</span> <span class="ow">or</span> <span class="n">save_source</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">source</span> <span class="o">=</span> <span class="n">astor</span><span class="o">.</span><span class="n">to_source</span><span class="p">(</span><span class="n">f_mod</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: nocover</span>
+                    <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;miniutils.pragma.</span><span class="si">{name}</span><span class="s2"> requires &#39;astor&#39; to be installed to obtain source code&quot;</span>
+                                      <span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">))</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>  <span class="c1"># pragma: nocover</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">astor</span><span class="o">.</span><span class="n">dump_tree</span><span class="p">(</span><span class="n">f_mod</span><span class="p">))</span> <span class="kn">from</span> <span class="nn">ex</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">source</span> <span class="o">=</span> <span class="kc">None</span>
+
+            <span class="k">if</span> <span class="n">return_source</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">source</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f_mod</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">fix_missing_locations</span><span class="p">(</span><span class="n">f_mod</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">save_source</span><span class="p">:</span>
+                    <span class="n">temp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="n">f_file</span> <span class="o">=</span> <span class="n">temp</span><span class="o">.</span><span class="n">name</span>
+                <span class="n">exec</span><span class="p">(</span><span class="nb">compile</span><span class="p">(</span><span class="n">f_mod</span><span class="p">,</span> <span class="n">f_file</span><span class="p">,</span> <span class="s1">&#39;exec&#39;</span><span class="p">),</span> <span class="n">glbls</span><span class="p">)</span>
+                <span class="n">func</span> <span class="o">=</span> <span class="n">glbls</span><span class="p">[</span><span class="n">f_mod</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">save_source</span><span class="p">:</span>
+                    <span class="n">func</span><span class="o">.</span><span class="n">__tempfile__</span> <span class="o">=</span> <span class="n">temp</span>
+                    <span class="n">temp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+                    <span class="n">temp</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">func</span>
+
+        <span class="k">return</span> <span class="n">inner</span>
+
+    <span class="n">transform</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">=</span> <span class="n">name</span>
+    <span class="n">transform</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">description</span><span class="p">,</span> <span class="n">transform</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">transform</span>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, scnerd.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'0.1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

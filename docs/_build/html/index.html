@@ -1,0 +1,505 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Welcome to pypragma’s documentation! &mdash; pypragma 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="genindex.html"/>
+        <link rel="search" title="Search" href="search.html"/>
+    <link rel="top" title="pypragma 0.1.0 documentation" href="#"/>
+        <link rel="next" title="Collapse Literals" href="collapse_literals.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="#" class="icon icon-home"> pypragma
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="collapse_literals.html">Collapse Literals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deindex.html">De-index Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="unroll.html">Unroll</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inline.html">Inlining Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">TODO List</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">pypragma</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="#">Docs</a> &raquo;</li>
+        
+      <li>Welcome to pypragma’s documentation!</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="welcome-to-pypragma-s-documentation">
+<h1>Welcome to pypragma’s documentation!<a class="headerlink" href="#welcome-to-pypragma-s-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="collapse_literals.html">Collapse Literals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deindex.html">De-index Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="unroll.html">Unroll</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inline.html">Inlining Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">TODO List</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="overview">
+<h1>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h1>
+<p>PyPragma is a set of tools for performing in-place code modification, inspired by compiler directives in C. These modifications are intended to make no functional changes to the execution of code. In C, this is used to increase code performance or make certain tradeoffs (often between the size of the binary and its execution speed). In Python, these changes are most applicable when leveraging code generation libraries (such as Numba or Tangent) where the use of certain Python features is disallowed. By transforming the code in-place, disallowed features can be converted to allowed syntax at runtime without sacrificing the dynamic nature of python code.</p>
+<p>For example, with Numba, it is not possible to compile a function which dynamically references and calls other functions (e.g., you may not select a function from a list and then execute it, you may only call functions by their explicit name):</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="n">fns</span> <span class="o">=</span> <span class="p">[</span><span class="n">sin</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">tan</span><span class="p">]</span>
+
+<span class="nd">@numba.jit</span>
+<span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+   <span class="k">return</span> <span class="n">fns</span><span class="p">[</span><span class="n">i</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># Not allowed, since it&#39;s unknown which function is getting called</span>
+</pre></div>
+</div>
+<p>If the dynamism is static by the time the function is defined, such as in this case, then these dynamic language features can be flattened to simpler features that such code generation libraries are more likely to support (e.g., the function can be extracted into a closure variable, then called directly by that name):</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="n">fns</span> <span class="o">=</span> <span class="p">[</span><span class="n">sin</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">tan</span><span class="p">]</span>
+
+<span class="n">fns_0</span> <span class="o">=</span> <span class="n">fns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">fns_1</span> <span class="o">=</span> <span class="n">fns</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">fns_2</span> <span class="o">=</span> <span class="n">fns</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+<span class="nd">@numba.jit</span>
+<span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+   <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">fns_0</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+   <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">fns_1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+   <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">fns_2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Such a modification can only be done by the programmer if the dynamic features are known <em>before</em> runtime, that is, if <code class="docutils literal"><span class="pre">fns</span></code> is dynamically computed, then this modification cannot be performed by the programmer, even though this example demonstrates the the original function is not inherently dynamic, it just appears so. PyPragma enables this transformation at runtime, which for this example function would look like:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="n">fns</span> <span class="o">=</span> <span class="p">[</span><span class="n">sin</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">tan</span><span class="p">]</span>
+
+<span class="nd">@numba.jit</span>
+<span class="nd">@pragma.deindex</span><span class="p">(</span><span class="n">fns</span><span class="p">,</span> <span class="s1">&#39;fns&#39;</span><span class="p">)</span>
+<span class="nd">@pragma.unroll</span><span class="p">(</span><span class="n">num_fns</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">fns</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+   <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_fns</span><span class="p">):</span>
+      <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">:</span>
+         <span class="k">return</span> <span class="n">fns</span><span class="p">[</span><span class="n">j</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># Still dynamic call, but decorators convert to static</span>
+</pre></div>
+</div>
+<p>This example is converted, in place and at runtime, to exactly the unrolled code above.</p>
+</div>
+<div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<p>As usual, you have the choice of installing from PyPi:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">pragma</span>
+</pre></div>
+</div>
+<p>or directly from Github:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">git</span><span class="o">+</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">scnerd</span><span class="o">/</span><span class="n">pypragma</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h1>
+<p>PyPragma has a small number of stackable decorators, each of which transforms a function in-place without changing its execution behavior. These can be imported as such:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pragma</span>
+</pre></div>
+</div>
+<p>Each decorator can be applied to a function using either the standard decorator syntax, or as a function call:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="nd">@pragma.unroll</span>
+<span class="k">def</span> <span class="nf">pows</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+   <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+      <span class="k">yield</span> <span class="n">i</span> <span class="o">**</span> <span class="n">x</span>
+
+<span class="n">pows</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+
+<span class="c1"># Is identical to...</span>
+
+<span class="k">def</span> <span class="nf">pows</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+   <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+      <span class="k">yield</span> <span class="n">i</span> <span class="o">**</span> <span class="n">x</span>
+
+<span class="n">pragma</span><span class="o">.</span><span class="n">unroll</span><span class="p">(</span><span class="n">pows</span><span class="p">)(</span><span class="mi">5</span><span class="p">)</span>
+
+<span class="c1"># Both of which become...</span>
+
+<span class="k">def</span> <span class="nf">pows</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+   <span class="k">yield</span> <span class="n">i</span> <span class="o">**</span> <span class="mi">0</span>
+   <span class="k">yield</span> <span class="n">i</span> <span class="o">**</span> <span class="mi">1</span>
+   <span class="k">yield</span> <span class="n">i</span> <span class="o">**</span> <span class="mi">2</span>
+
+<span class="n">pows</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Each decorator can be used bare, as in the example above, or can be given initial parameters before decorating the given function. Any non-specified keyword arguments are added to the resulting function’s closure as variables. In addition, the decorated function’s closure is preserved, so external variables are also included. As a simple example, the above code could also be written as:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="nd">@pragma.unroll</span><span class="p">(</span><span class="n">num_pows</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">pows</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+   <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_pows</span><span class="p">):</span>
+      <span class="k">yield</span> <span class="n">i</span> <span class="o">**</span> <span class="n">x</span>
+
+<span class="c1"># Or...</span>
+
+<span class="n">num_pows</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="nd">@pragma.unroll</span>
+<span class="k">def</span> <span class="nf">pows</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+   <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_pows</span><span class="p">):</span>
+      <span class="k">yield</span> <span class="n">i</span> <span class="o">**</span> <span class="n">x</span>
+</pre></div>
+</div>
+<p>Certain keywords are reserved, of course, as will be defined in the documentation for each decorator. Additionally, the resulting function is an actual, proper Python function, and hence must adhere to Python syntax rules. As a result, some modifications depend upon using certain variable names, which may collide with other variable names used by your function. Every effort has been made to make this unlikely by using mangled variable names, but the possibility for collision remains.</p>
+<p>A side effect of the proper Python syntax is that functions can have their source code retrieved by any normal Pythonic reflection:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="gp">In [1]: </span><span class="nd">@pragma</span><span class="o">.</span><span class="n">unroll</span><span class="p">(</span><span class="n">num_pows</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">  ...: def pows(i):</span>
+<span class="go">  ...:    for x in range(num_pows):</span>
+<span class="go">  ...:       yield i ** x</span>
+<span class="go">  ...:</span>
+
+<span class="gp">In [2]: </span>pows<span class="o">??</span>
+<span class="go">Signature: pows(i)</span>
+<span class="go">Source:</span>
+<span class="go">def pows(i):</span>
+<span class="go">    yield i ** 0</span>
+<span class="go">    yield i ** 1</span>
+<span class="go">    yield i ** 2</span>
+<span class="go">File:      /tmp/tmpmn5bza2j</span>
+<span class="go">Type:      function</span>
+</pre></div>
+</div>
+<p>In general, all decorators consider a value to be known if:</p>
+<ul class="simple">
+<li>It is defined in the function’s closure, and is not modified earlier in the function</li>
+<li>It is defined as a keyword global to the decorator, and is not modified earlier in the function</li>
+<li>It is a literal</li>
+<li>It is a variable assigned a literal earlier in the function (even if it overrides a previously known value)</li>
+<li>It is a known index into a known list or tuple (dictionaries are not yet supported)</li>
+</ul>
+<p>Some special cases include:</p>
+<ul class="simple">
+<li>In <code class="docutils literal"><span class="pre">collapse_literals</span></code>, any operation on known values gets reduced to a known value</li>
+</ul>
+<div class="admonition-todo admonition" id="index-0">
+<p class="first admonition-title">Todo</p>
+<p class="last">Support deterministic functions of known values</p>
+</div>
+<p>Additionally, as a utility primarily for testing and debugging, the source code can be easily retrieved from each decorator <em>instead</em> of the transformed function by using the <code class="docutils literal"><span class="pre">return_source=True</span></code> argument.</p>
+</div>
+<div class="section" id="quick-examples">
+<h1>Quick Examples<a class="headerlink" href="#quick-examples" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="collapse-literals">
+<h2>Collapse Literals<a class="headerlink" href="#collapse-literals" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference internal" href="collapse_literals.html"><span class="doc">Complete documentation</span></a>:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="gp">In [1]: </span><span class="nd">@pragma</span><span class="o">.</span><span class="n">collapse_literals</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="gp">   ...: </span><span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">y</span><span class="p">):</span>
+<span class="gp">   ...: </span>    <span class="n">z</span> <span class="o">=</span> <span class="n">x</span> <span class="o">//</span> <span class="mi">2</span>
+<span class="gp">   ...: </span>    <span class="k">return</span> <span class="n">y</span> <span class="o">*</span> <span class="mi">10</span><span class="o">**</span><span class="n">z</span>
+<span class="gp">   ...:</span>
+
+<span class="gp">In [2]: </span>f<span class="o">??</span>
+<span class="go">Signature: f(y)</span>
+<span class="go">Source:</span>
+<span class="go">def f(y):</span>
+<span class="go">    z = 2</span>
+<span class="go">    return y * 100</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="de-index-arrays">
+<h2>De-index Arrays<a class="headerlink" href="#de-index-arrays" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference internal" href="deindex.html"><span class="doc">Complete documentation</span></a>:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="gp">In [1]: </span><span class="n">fns</span> <span class="o">=</span> <span class="p">[</span><span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">tan</span><span class="p">]</span>
+
+<span class="gp">In [2]: </span><span class="nd">@pragma</span><span class="o">.</span><span class="n">deindex</span><span class="p">(</span><span class="n">fns</span><span class="p">,</span> <span class="s1">&#39;fns&#39;</span><span class="p">)</span>
+<span class="gp">   ...: </span><span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="gp">   ...: </span>    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<span class="gp">   ...: </span>        <span class="k">return</span> <span class="n">fns</span><span class="p">[</span><span class="mi">0</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">   ...: </span>    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<span class="gp">   ...: </span>        <span class="k">return</span> <span class="n">fns</span><span class="p">[</span><span class="mi">1</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">   ...: </span>    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+<span class="gp">   ...: </span>        <span class="k">return</span> <span class="n">fns</span><span class="p">[</span><span class="mi">2</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">   ...:</span>
+
+<span class="gp">In [3]: </span>call<span class="o">??</span>
+<span class="go">Signature: call(i, x)</span>
+<span class="go">Source:</span>
+<span class="go">def call(i, x):</span>
+<span class="go">    if i == 0:</span>
+<span class="go">        return fns_0(x)</span>
+<span class="go">    if i == 1:</span>
+<span class="go">        return fns_1(x)</span>
+<span class="go">    if i == 2:</span>
+<span class="go">        return fns_2(x)</span>
+</pre></div>
+</div>
+<p>Note that, while it’s not evident from the above printed source code, each variable <code class="docutils literal"><span class="pre">fns_X</span></code> is assigned to the value of <code class="docutils literal"><span class="pre">fns[X]</span></code> at the time when the decoration occurs:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="gp">In [4]: </span><span class="n">call</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+<span class="gh">Out[4]: </span><span class="go">1.2246467991473532e-16  # AKA, sin(pi) = 0</span>
+
+<span class="gp">In [5]: </span><span class="n">call</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+<span class="gh">Out[5]: </span><span class="go">-1.0  # AKA, cos(pi) = -1</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="unroll">
+<h2>Unroll<a class="headerlink" href="#unroll" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference internal" href="unroll.html"><span class="doc">Complete documentation</span></a>:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="gp">In [1]: </span><span class="n">p_or_m</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="gp">In [2]: </span><span class="nd">@pragma</span><span class="o">.</span><span class="n">unroll</span>
+<span class="gp">   ...: </span><span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="gp">   ...: </span>    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+<span class="gp">   ...: </span>        <span class="k">for</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">p_or_m</span><span class="p">:</span>
+<span class="gp">   ...: </span>            <span class="k">yield</span> <span class="n">sign</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">j</span><span class="p">)</span>
+<span class="gp">   ...:</span>
+
+<span class="gp">In [3]: </span>f<span class="o">??</span>
+<span class="go">Signature: f(x)</span>
+<span class="go">Source:</span>
+<span class="go">def f(x):</span>
+<span class="go">    yield 1 * (x + 0)</span>
+<span class="go">    yield -1 * (x + 0)</span>
+<span class="go">    yield 1 * (x + 1)</span>
+<span class="go">    yield -1 * (x + 1)</span>
+<span class="go">    yield 1 * (x + 2)</span>
+<span class="go">    yield -1 * (x + 2)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="inline">
+<h2>Inline<a class="headerlink" href="#inline" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference internal" href="inline.html"><span class="doc">Complete documentation</span></a>:</p>
+<div class="highlight-ipython3"><div class="highlight"><pre><span></span><span class="gp">In [1]: </span><span class="k">def</span> <span class="nf">sqr</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="gp">   ...: </span>    <span class="k">return</span> <span class="n">x</span> <span class="o">**</span> <span class="mi">2</span>
+<span class="gp">   ...:</span>
+
+<span class="gp">In [2]: </span><span class="nd">@pragma</span><span class="o">.</span><span class="n">inline</span><span class="p">(</span><span class="n">sqr</span><span class="p">)</span>
+<span class="gp">   ...: </span><span class="k">def</span> <span class="nf">sqr_sum</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="gp">   ...: </span>    <span class="k">return</span> <span class="n">sqr</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">+</span> <span class="n">sqr</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="gp">   ...:</span>
+
+<span class="gp">In [3]: </span>sqr_sum<span class="o">??</span>
+<span class="go">Signature: sqr_sum(a, b)</span>
+<span class="go">Source:</span>
+<span class="go">def sqr_sum(a, b):</span>
+<span class="go">    _sqr_0 = dict(x=a)  # Prepare for &#39;sqr(a)&#39;</span>
+<span class="go">    for ____ in [None]:  # Wrap function in block</span>
+<span class="go">        _sqr_0[&#39;return&#39;] = _sqr_0[&#39;x&#39;] ** 2  # Compute returned value</span>
+<span class="go">        break  # &#39;return&#39;</span>
+<span class="go">    _sqr_return_0 = _sqr_0.get(&#39;return&#39;, None)  # Extract the returned value</span>
+<span class="go">    del _sqr_0  # Delete the arguments dictionary, the function call is finished</span>
+<span class="go">    _sqr_0 = dict(x=b)  # Do the same thing for &#39;sqr(b)&#39;</span>
+<span class="go">    for ____ in [None]:</span>
+<span class="go">        _sqr_0[&#39;return&#39;] = _sqr_0[&#39;x&#39;] ** 2</span>
+<span class="go">        break</span>
+<span class="go">    _sqr_return_1 = _sqr_0.get(&#39;return&#39;, None)</span>
+<span class="go">    del _sqr_0</span>
+<span class="go">    return _sqr_return_0 + _sqr_return_1  # Substitute the returned values for the function calls</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
+<li><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></li>
+<li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
+</ul>
+</div>
+
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="collapse_literals.html" class="btn btn-neutral float-right" title="Collapse Literals" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, scnerd.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'0.1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
