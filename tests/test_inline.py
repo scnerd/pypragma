@@ -66,7 +66,7 @@ class TestInline(PragmaTest):
         def f():
             g(1, 2, 3, 4, y=5, z=6, w=7)
 
-        result = dedent('''
+        result1 = dedent('''
         def f():
             _g_0 = dict(x=1, args=(2, 3, 4), y=5, kwargs={'z': 6, 'w': 7})
             for ____ in [None]:
@@ -79,7 +79,21 @@ class TestInline(PragmaTest):
             del _g_0
             None
         ''')
-        self.assertEqual(pragma.inline(g, return_source=True)(f).strip(), result.strip())
+        result2 = dedent('''
+        def f():
+            _g_0 = dict(x=1, args=(2, 3, 4), y=5, kwargs={'w': 7, 'z': 6})
+            for ____ in [None]:
+                print('X = {}'.format(_g_0['x']))
+                for i, a in enumerate(_g_0['args']):
+                    print('args[{}] = {}'.format(i, a))
+                print('Y = {}'.format(_g_0['y']))
+                for k, v in _g_0['kwargs'].items():
+                    print('{} = {}'.format(k, v))
+            del _g_0
+            None
+        ''')
+        self.assertIn(pragma.inline(g, return_source=True)(f).strip(),
+                      [result1.strip(), result2.strip()])
 
         self.assertEqual(f(), pragma.inline(g)(f)())
 
