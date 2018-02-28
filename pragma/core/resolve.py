@@ -349,11 +349,9 @@ def resolve_literal_unop(node, ctxt):
 def resolve_literal_binop(node, ctxt):
     left = _resolve_literal(node.left, ctxt)
     right = _resolve_literal(node.right, ctxt)
-    # print("({} {})".format(repr(node.op), ", ".join(repr(o) for o in operands)))
     lliteral = not isinstance(left, ast.AST)
     rliteral = not isinstance(right, ast.AST)
     if lliteral and rliteral:
-        # print("Both operands {} and {} are literals, attempting to collapse".format(left, right))
         try:
             return _collapse_map[type(node.op)](left, right)
         except:
@@ -367,7 +365,6 @@ def resolve_literal_binop(node, ctxt):
 
         right = make_ast_from_literal(right)
         right = right if isinstance(right, ast.AST) else node.right
-        # print("Attempting to combine {} and {} ({} op)".format(left, right, node.op))
         return ast.BinOp(left=left, right=right, op=node.op)
 
 
@@ -426,6 +423,8 @@ def resolve_literal(node, ctxt, give_raw_result=False):
     :type node: AST
     :param ctxt: The environment stack to use when running the check
     :type ctxt: DictStack
+    :param give_raw_result: Return the resolved value, not its AST-form
+    :type give_raw_result: bool
     :return: The given AST node with literal operations collapsed as much as possible
     :rtype: *
     """
