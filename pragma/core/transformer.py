@@ -78,8 +78,38 @@ class DebugTransformerMixin:  # pragma: nocover
 
 class TrackedContextTransformer(ast.NodeTransformer):
     def __init__(self, ctxt=None):
-        self.ctxt = ctxt or DictStack()
         super().__init__()
+        self.ctxt = ctxt or DictStack()
+        self.conditional_execution = False
+        self.in_main_func = False
+        self.code_blocks = []
+
+    def visit_many(self, nodes):
+        for n in nodes:
+            n = self.visit(n)
+            if n is None:
+                continue
+            elif isinstance(n, (list, tuple)):
+                yield from n
+            else:
+                yield n
+
+    def nested_visit(self, nodes, set_conditional_exec=True):
+        """When we visit a block of statements, create a new "code block" and push statements into it"""
+        was_conditional_exec = self.conditional_execution
+        if set_conditional_exec:
+            self.conditional_execution = True
+
+        lst = []
+        self.code_blocks.append(lst)
+
+        for line in self.visit_many(nodes):
+            lst.append(line)
+
+        self.code_blocks.pop()
+
+        self.conditional_execution = was_conditional_exec
+        return lst
 
     def resolve_literal(self, node):
         log.debug("Attempting to resolve {}".format(node))
@@ -88,14 +118,29 @@ class TrackedContextTransformer(ast.NodeTransformer):
                   else "Failed to resolve {}".format(node))
         return resolution
 
-    def visit_many(self, nodes):
-        for n in nodes:
-            n = self.visit(n)
-            if n is not None:
-                if isinstance(n, ast.AST):
-                    yield n
+    def generic_visit_less(self, node, *without):
+        for field, old_value in ast.iter_fields(node):
+            if field in without:
+                continue
+            elif isinstance(old_value, list):
+                new_values = []
+                for value in old_value:
+                    if isinstance(value, ast.AST):
+                        value = self.visit(value)
+                        if value is None:
+                            continue
+                        elif not isinstance(value, ast.AST):
+                            new_values.extend(value)
+                            continue
+                    new_values.append(value)
+                old_value[:] = new_values
+            elif isinstance(old_value, ast.AST):
+                new_node = self.visit(old_value)
+                if new_node is None:
+                    delattr(node, field)
                 else:
-                    yield from n
+                    setattr(node, field, new_node)
+        return node
 
     def visit_Assign(self, node):
         node.value = self.visit(node.value)
@@ -147,31 +192,78 @@ class TrackedContextTransformer(ast.NodeTransformer):
     def visit_AugAssign(self, node):
         for assgn in _assign_names(node.target):
             self.ctxt[assgn] = None
-        return super().generic_visit(node)
+        return self.generic_visit(node)
 
     def visit_Delete(self, node):
         for targ in node.targets:
             for assgn in _assign_names(targ):
                 del self.ctxt[assgn]
-        return super().generic_visit(node)
+        return self.generic_visit(node)
+
+    ###################################################
+    # From here on down, we just have handlers for every AST node that has a "code block" (stmt*)
+    ###################################################
 
     def visit_FunctionDef(self, node):
-        self.ctxt.push({}, False)
-        node.body = list(self.visit_many(node.body))
-        self.ctxt.pop()
-        return self.generic_visit(node)
+        if not self.in_main_func:
+            self.ctxt.push({}, False)
+            node.body = self.nested_visit(node.body, set_conditional_exec=False)
+            self.ctxt.pop()
+            return self.generic_visit_less(node, 'body')
+        else:
+            return node
 
     def visit_AsyncFunctionDef(self, node):
-        self.ctxt.push({}, False)
-        node.body = list(self.visit_many(node.body))
-        self.ctxt.pop()
-        return self.generic_visit(node)
+        return self.visit_FunctionDef(node)
 
     def visit_ClassDef(self, node):
-        self.ctxt.push({}, False)
-        node.body = list(self.visit_many(node.body))
-        self.ctxt.pop()
-        return self.generic_visit(node)
+        # self.ctxt.push({}, False)
+        # node.body = self.nested_visit(node.body)
+        # self.ctxt.pop()
+        # return self.generic_visit_less(node, 'body')
+        return node
+
+    def visit_For(self, node):
+        node.body = self.nested_visit(node.body)
+        node.orelse = self.nested_visit(node.orelse)
+        return self.generic_visit_less(node, 'body', 'orelse')
+
+    def visit_AsyncFor(self, node):
+        node.body = self.nested_visit(node.body)
+        node.orelse = self.nested_visit(node.orelse)
+        return self.generic_visit_less(node, 'body', 'orelse')
+
+    def visit_While(self, node):
+        node.body = self.nested_visit(node.body)
+        node.orelse = self.nested_visit(node.orelse)
+        return self.generic_visit_less(node, 'body', 'orelse')
+
+    def visit_If(self, node):
+        node.body = self.nested_visit(node.body)
+        node.orelse = self.nested_visit(node.orelse)
+        return self.generic_visit_less(node, 'body', 'orelse')
+
+    def visit_With(self, node):
+        node.body = self.nested_visit(node.body, set_conditional_exec=False)
+        return self.generic_visit_less(node, 'body')
+
+    def visit_AsyncWith(self, node):
+        node.body = self.nested_visit(node.body, set_conditional_exec=False)
+        return self.generic_visit_less(node, 'body')
+
+    def visit_Try(self, node):
+        node.body = self.nested_visit(node.body)
+        node.orelse = self.nested_visit(node.orelse)
+        node.finalbody = self.nested_visit(node.finalbody, set_conditional_exec=False)
+        return self.generic_visit_less(node, 'body', 'orelse', 'finalbody')
+
+    def visit_Module(self, node):
+        node.body = self.nested_visit(node.body, set_conditional_exec=False)
+        return self.generic_visit_less(node, 'body')
+
+    def visit_ExceptHandler(self, node):
+        node.body = self.nested_visit(node.body)
+        return self.generic_visit_less(node, 'body')
 
 
 def make_function_transformer(transformer_type, name, description, **transformer_kwargs):

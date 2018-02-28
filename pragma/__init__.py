@@ -3,3 +3,4 @@ from . import core
 from .deindex import deindex
 from .inline import inline
 from .unroll import unroll
+from .cleanup import cleanup
