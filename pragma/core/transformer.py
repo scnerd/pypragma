@@ -1,15 +1,18 @@
 # import ast
 import copy
-import inspect
+# import inspect
 import sys
 import tempfile
 import textwrap
+# import logging
 
 import astor
 from miniutils.opt_decorator import optional_argument_decorator
 
 from .resolve import *
 from .stack import DictStack
+
+log = logging.getLogger(__name__)
 
 
 @magic_contract
@@ -55,22 +58,20 @@ def _assign_names(node):
 class DebugTransformerMixin:  # pragma: nocover
     def visit(self, node):
         orig_node_code = astor.to_source(node).strip()
-        print("Starting to visit >> {} <<".format(orig_node_code))
+        log.debug("Starting to visit >> {} <<".format(orig_node_code))
 
         new_node = super().visit(node)
 
         try:
             if new_node is None:
-                print("Deleted >>> {} <<<".format(orig_node_code))
+                log.debug("Deleted >>> {} <<<".format(orig_node_code))
             elif isinstance(new_node, ast.AST):
-                print("Converted >>> {} <<< to >>> {} <<<".format(orig_node_code, astor.to_source(new_node).strip()))
+                log.debug("Converted >>> {} <<< to >>> {} <<<".format(orig_node_code, astor.to_source(new_node).strip()))
             elif isinstance(new_node, list):
-                print("Converted >>> {} <<< to [[[ {} ]]]".format(orig_node_code, ", ".join(
+                log.debug("Converted >>> {} <<< to [[[ {} ]]]".format(orig_node_code, ", ".join(
                     astor.to_source(n).strip() for n in new_node)))
         except Exception as ex:
             raise AssertionError("Failed on {} >>> {}".format(orig_node_code, astor.dump_tree(new_node))) from ex
-            # print("Failed on {} >>> {}".format(astor.dump_tree(orig_node), astor.dump_tree(new_node)))
-            # return orig_node
 
         return new_node
 
@@ -79,6 +80,13 @@ class TrackedContextTransformer(ast.NodeTransformer):
     def __init__(self, ctxt=None):
         self.ctxt = ctxt or DictStack()
         super().__init__()
+
+    def resolve_literal(self, node):
+        log.debug("Attempting to resolve {}".format(node))
+        resolution = resolve_literal(node, self.ctxt)
+        log.debug("Resolved {} to {}".format(node, resolution) if resolution is not node
+                  else "Failed to resolve {}".format(node))
+        return resolution
 
     def visit_many(self, nodes):
         for n in nodes:

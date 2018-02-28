@@ -199,3 +199,14 @@ class TestCollapseLiterals(PragmaTest):
             return -4
         ''')
         self.assertEqual(f.strip(), result.strip())
+
+    def test_funcs(self):
+        @pragma.collapse_literals(return_source=True)
+        def f():
+            return sum(range(5))
+
+        result = dedent('''
+        def f():
+            return 10
+        ''')
+        self.assertEqual(f.strip(), result.strip())
