@@ -12,8 +12,6 @@ from miniutils.opt_decorator import optional_argument_decorator
 from .resolve import *
 from .stack import DictStack
 
-log = logging.getLogger(__name__)
-
 
 @magic_contract
 def function_ast(f):
@@ -53,6 +51,9 @@ def _assign_names(node):
             yield from _assign_names(e)
     elif isinstance(node, ast.Subscript):
         yield from _assign_names(node.value)
+    elif isinstance(node, (tuple, list)):
+        for e in node:
+            yield from _assign_names(e)
 
 
 class DebugTransformerMixin:  # pragma: nocover
@@ -118,6 +119,13 @@ class TrackedContextTransformer(ast.NodeTransformer):
                   else "Failed to resolve {}".format(node))
         return resolution
 
+    def constant_iterable(self, node):
+        log.debug("Attempting to resolve {} as iterable".format(node))
+        resolution = constant_iterable(node, self.ctxt)
+        log.debug("Resolved {} to {}".format(node, resolution) if resolution is not None
+                  else "Failed to resolve {} as iterable".format(node))
+        return resolution
+
     def generic_visit_less(self, node, *without):
         for field, old_value in ast.iter_fields(node):
             if field in without:
@@ -142,62 +150,102 @@ class TrackedContextTransformer(ast.NodeTransformer):
                     setattr(node, field, new_node)
         return node
 
+    def __setitem__(self, key, value):
+        log.debug("Context setting {} to {}".format(key, "?UNKNOWN?" if value is None else astor.to_source(value).strip()))
+        self.ctxt[key] = value
+
+    def __getitem__(self, item):
+        res = self.ctxt[item]
+        log.debug("Context resolving {} to {}".format(item, "?UNKNOWN?" if res is None else astor.to_source(res).strip()))
+        return res
+
+    def __delitem__(self, key):
+        log.debug("Context deleting {}".format(key))
+        del self.ctxt[key]
+
+    def _assign(self, name, val):
+        if isinstance(name, (ast.Tuple, tuple, list)):  # (a, b) = ...
+            if isinstance(name, ast.Tuple):
+                names = name.elts
+            else:
+                names = name
+            if len(names) == 1:
+                self._assign(names[0], val)
+            elif val is None or self.conditional_execution:  # Something above us failed, we have no idea what this value is getting assigned
+                for subname in names:
+                    self._assign(subname, None)
+            else:
+                iterable_val = self.constant_iterable(val)
+                if iterable_val is not None:  # (a, b) = 1, 2
+                    iterable_val = iter(iterable_val)
+                    try:
+                        for subname in names:
+                            if isinstance(subname, ast.Starred):  # (a, _*b_) = 1, _2, 3_
+                                self._assign(subname.value, list(iterable_val))
+                            else:  # (_a_, b) = _1_, 2
+                                self._assign(subname, next(iterable_val))
+                    except StopIteration:
+                        raise IndexError("Failed to unpack {} into {}, either had too few elements or values after a starred variable".format(val, name))
+                else:
+                    self._assign(name, None)
+
+        elif isinstance(name, ast.Name):  # a = ...
+            if val is None or self.conditional_execution:  # a = ???
+                self[name.id] = None
+            else:
+                literal_val = self.resolve_literal(val)
+                if not isinstance(literal_val, ast.AST):  # a = 5
+                    self[name.id] = make_ast_from_literal(literal_val)
+                else:  # a = f(x)
+                    self[name.id] = make_ast_from_literal(self.constant_iterable(val)) or val
+                    # self[name.id] = val
+
+        elif isinstance(name, ast.Attribute):  # a.x = ...
+            log.debug("Can't handle assignment to attributes yet")
+
+        elif isinstance(name, ast.Subscript):  # ...[i] = ...
+            arr = name.value
+            if val is None or self.conditional_execution:  # a[i] = ???
+                log.debug("Partial assignment to an iterable is not yet supported, killing entire iterable")
+                self._assign(arr, None)
+            elif isinstance(arr, ast.Name):  # a[i] = ...
+                idx = name.slice
+                cur_iterable = self.constant_iterable(arr)
+                if cur_iterable is not None:  # a[i] = ... where a = [1,2,3]
+                    literal_idx = self.resolve_literal(idx)
+                    if not isinstance(literal_idx, ast.AST):  # a[i] = ... where a = [1,2,3], i =
+                        try:
+                            cur_iterable[literal_idx] = val
+                        except (IndexError, KeyError):
+                            raise IndexError("Cannot assigned {arr}[{idx}] = {set} where {arr}={arr_val} and {idx}={idx_val}".format(
+                                arr=arr.id, idx=idx, set=val, arr_val=cur_iterable, idx_val=literal_idx
+                            ))
+                        self[arr.id] = make_ast_from_literal(cur_iterable)
+                    else:  # a[???] = val
+                        self[arr.id] = None
+                else:  # ???[i] = val
+                    self[arr.id] = None
+            else:  # a.x[i] = val, or f(x)[i] = val
+                log.debug("Can't handle assignment to subscript of non-variables yet")
+
+        else:  # wtf?
+            log.warning("Unhandled assignment of {} to {}".format(val, name))
+
     def visit_Assign(self, node):
         node.value = self.visit(node.value)
-        erase_targets = True
-        # print(node.value)
-        # TODO: Support tuple assignments
-        if len(node.targets) == 1:
-            if isinstance(node.targets[0], ast.Name):
-                nvalue = copy.deepcopy(node.value)
-                var = node.targets[0].id
-                val = constant_iterable(nvalue, self.ctxt)
-                if val is not None:
-                    # print("Setting {} = {}".format(var, val))
-                    self.ctxt[var] = val
-                else:
-                    val = resolve_literal(nvalue, self.ctxt)
-                    # print("Setting {} = {}".format(var, val))
-                    self.ctxt[var] = val
-                erase_targets = False
-            # elif isinstance(node.targets[0], ast.Subscript):
-            #     targ = node.targets[0]
-            #     iterable = constant_iterable(targ.value, self.ctxt, False)
-            #     if iterable is None:
-            #         iterable = constant_dict(targ.value, self.ctxt)
-            #     if iterable is None:
-            #         return node
-            #     key = resolve_literal(targ.slice, self.ctxt)
-            #     if isinstance(key, ast.AST):
-            #         return node
-            #
-            #     nvalue = copy.deepcopy(node.value)
-            #     val = constant_iterable(nvalue, self.ctxt)
-            #     warnings.warn("Iterable assignment not fully implemented yet...")
-            #     if val is not None:
-            #         # print("Setting {} = {}".format(var, val))
-            #         iterable[key] = val
-            #     else:
-            #         val = resolve_literal(nvalue, self.ctxt)
-            #         # print("Setting {} = {}".format(var, val))
-            #         iterable[key] = val
-            #     erase_targets = False
-
-        if erase_targets:
-            for targ in node.targets:
-                for assgn in _assign_names(targ):
-                    self.ctxt[assgn] = None
+        self._assign(node.targets, node.value)
         return node
 
     def visit_AugAssign(self, node):
-        for assgn in _assign_names(node.target):
-            self.ctxt[assgn] = None
-        return self.generic_visit(node)
+        node = copy.deepcopy(node)
+        self._assign(node.target, self.resolve_literal(ast.BinOp(op=node.op, left=node.target, right=node.value)))
+        node.value = self.visit(node.value)
+        return node
 
     def visit_Delete(self, node):
         for targ in node.targets:
             for assgn in _assign_names(targ):
-                del self.ctxt[assgn]
+                del self[assgn]
         return self.generic_visit(node)
 
     ###################################################
@@ -226,22 +274,26 @@ class TrackedContextTransformer(ast.NodeTransformer):
     def visit_For(self, node):
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        return self.generic_visit_less(node, 'body', 'orelse')
+        node.iter = self.visit(node.iter)
+        return self.generic_visit_less(node, 'body', 'orelse', 'iter')
 
     def visit_AsyncFor(self, node):
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        return self.generic_visit_less(node, 'body', 'orelse')
+        node.iter = self.visit(node.iter)
+        return self.generic_visit_less(node, 'body', 'orelse', 'iter')
 
     def visit_While(self, node):
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        return self.generic_visit_less(node, 'body', 'orelse')
+        node.test = self.visit(node.test)
+        return self.generic_visit_less(node, 'body', 'orelse', 'test')
 
     def visit_If(self, node):
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        return self.generic_visit_less(node, 'body', 'orelse')
+        node.test = self.visit(node.test)
+        return self.generic_visit_less(node, 'body', 'orelse', 'test')
 
     def visit_With(self, node):
         node.body = self.nested_visit(node.body, set_conditional_exec=False)

@@ -175,6 +175,27 @@ class TestUnroll(PragmaTest):
         self.assertEqual(summation(1), 3)
         self.assertEqual(summation(5), 15)
 
+    def test_unroll_dyn_list_const(self):
+        @pragma.collapse_literals(return_source=True)
+        @pragma.unroll(x=3)
+        def summation():
+            a = [x, x, x]
+            v = 0
+            for _a in a:
+                v += _a
+            return v
+
+        code = dedent('''
+        def summation():
+            a = [x, x, x]
+            v = 0
+            v += 3
+            v += 3
+            v += 3
+            return 9
+        ''')
+        self.assertEqual(summation.strip(), code.strip())
+
     def test_unroll_2range_source(self):
         @pragma.unroll(return_source=True)
         def f():
@@ -237,16 +258,16 @@ class TestUnroll(PragmaTest):
         def f():
             x = 3
             ((y, x), z) = ((1, 2), 3)
-            for i in [x,x,x]:
+            for i in [x, x, x]:
                 print(i)
 
         result = dedent('''
         def f():
             x = 3
             (y, x), z = (1, 2), 3
-            print(x)
-            print(x)
-            print(x)
+            print(2)
+            print(2)
+            print(2)
         ''')
         self.assertEqual(f.strip(), result.strip())
 

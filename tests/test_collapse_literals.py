@@ -127,13 +127,31 @@ class TestCollapseLiterals(PragmaTest):
 
             self.assertIsInstance(w[-1].category(), UserWarning)
 
-    # TODO: implement the features to get this test to work
-    # def test_conditional_erasure(self):
+    def test_conditional_erasure(self):
+        @pragma.collapse_literals(return_source=True)
+        def f(y):
+            x = 0
+            if y == x:
+                x = 1
+            return x
+
+        result = dedent('''
+        def f(y):
+            x = 0
+            if y == 0:
+                x = 1
+            return x
+        ''')
+        self.assertEqual(f.strip(), result.strip())
+
+    # # TODO: Implement the features to get this test to pass
+    # def test_conditional_partial_erasure(self):
     #     @pragma.collapse_literals(return_source=True)
     #     def f(y):
     #         x = 0
     #         if y == x:
     #             x = 1
+    #             return x
     #         return x
     #
     #     result = dedent('''
@@ -141,6 +159,7 @@ class TestCollapseLiterals(PragmaTest):
     #         x = 0
     #         if y == 0:
     #             x = 1
+    #             return 1
     #         return x
     #     ''')
     #     self.assertEqual(f.strip(), result.strip())
