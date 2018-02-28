@@ -4,3 +4,4 @@ astor
 coveralls
 coverage
 nose
+ipython
