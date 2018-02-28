@@ -1,0 +1,638 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>pragma.inline &mdash; pypragma 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="pypragma 0.1.0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> pypragma
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../collapse_literals.html">Collapse Literals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../deindex.html">De-index Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../unroll.html">Unroll</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../inline.html">Inlining Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../todo.html">TODO List</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">pypragma</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>pragma.inline</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for pragma.inline</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">OrderedDict</span> <span class="k">as</span> <span class="n">odict</span>
+
+<span class="kn">from</span> <span class="nn">.core</span> <span class="k">import</span> <span class="o">*</span>
+
+<span class="c1"># stmt = FunctionDef(identifier name, arguments args,</span>
+<span class="c1">#                        stmt* body, expr* decorator_list, expr? returns)</span>
+<span class="c1">#           | AsyncFunctionDef(identifier name, arguments args,</span>
+<span class="c1">#                              stmt* body, expr* decorator_list, expr? returns)</span>
+<span class="c1">#</span>
+<span class="c1">#           | ClassDef(identifier name,</span>
+<span class="c1">#              expr* bases,</span>
+<span class="c1">#              keyword* keywords,</span>
+<span class="c1">#              stmt* body,</span>
+<span class="c1">#              expr* decorator_list)</span>
+<span class="c1">#           | Return(expr? value)</span>
+<span class="c1">#</span>
+<span class="c1">#           | Delete(expr* targets)</span>
+<span class="c1">#           | Assign(expr* targets, expr value)</span>
+<span class="c1">#           | AugAssign(expr target, operator op, expr value)</span>
+<span class="c1">#           -- &#39;simple&#39; indicates that we annotate simple name without parens</span>
+<span class="c1">#           | AnnAssign(expr target, expr annotation, expr? value, int simple)</span>
+<span class="c1">#</span>
+<span class="c1">#           -- use &#39;orelse&#39; because else is a keyword in target languages</span>
+<span class="c1">#           | For(expr target, expr iter, stmt* body, stmt* orelse)</span>
+<span class="c1">#           | AsyncFor(expr target, expr iter, stmt* body, stmt* orelse)</span>
+<span class="c1">#           | While(expr test, stmt* body, stmt* orelse)</span>
+<span class="c1">#           | If(expr test, stmt* body, stmt* orelse)</span>
+<span class="c1">#           | With(withitem* items, stmt* body)</span>
+<span class="c1">#           | AsyncWith(withitem* items, stmt* body)</span>
+<span class="c1">#</span>
+<span class="c1">#           | Raise(expr? exc, expr? cause)</span>
+<span class="c1">#           | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)</span>
+<span class="c1">#           | Assert(expr test, expr? msg)</span>
+<span class="c1">#</span>
+<span class="c1">#           | Import(alias* names)</span>
+<span class="c1">#           | ImportFrom(identifier? module, alias* names, int? level)</span>
+<span class="c1">#</span>
+<span class="c1">#           | Global(identifier* names)</span>
+<span class="c1">#           | Nonlocal(identifier* names)</span>
+<span class="c1">#           | Expr(expr value)</span>
+<span class="c1">#           | Pass | Break | Continue</span>
+<span class="c1">#</span>
+<span class="c1">#           -- XXX Jython will be different</span>
+<span class="c1">#           -- col_offset is the byte offset in the utf8 string the parser uses</span>
+<span class="c1">#           attributes (int lineno, int col_offset)</span>
+
+<span class="n">DICT_FMT</span> <span class="o">=</span> <span class="s2">&quot;_</span><span class="si">{fname}</span><span class="s2">_</span><span class="si">{n}</span><span class="s2">&quot;</span>
+
+
+<span class="c1"># @magic_contract</span>
+<span class="k">def</span> <span class="nf">make_name</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create an AST node to represent the given argument name in the given function</span>
+<span class="sd">    :param fname: Function name</span>
+<span class="sd">    :type fname: str</span>
+<span class="sd">    :param var: Argument name</span>
+<span class="sd">    :type var: str</span>
+<span class="sd">    :param ctx: Context of this name (LOAD or STORE)</span>
+<span class="sd">    :type ctx: Load|Store</span>
+<span class="sd">    :param n: The number to append to this name (to allow for finite recursion)</span>
+<span class="sd">    :type n: int</span>
+<span class="sd">    :param fmt: Name format (if not stored in a dictionary)</span>
+<span class="sd">    :type fmt: str</span>
+<span class="sd">    :return: An AST node representing this argument</span>
+<span class="sd">    :rtype: Subscript|Call</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">ast</span><span class="o">.</span><span class="n">Subscript</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">DICT_FMT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fname</span><span class="o">=</span><span class="n">fname</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">),</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">()),</span>
+                         <span class="nb">slice</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">Str</span><span class="p">(</span><span class="n">var</span><span class="p">)),</span>
+                         <span class="n">ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">())</span>
+
+
+<span class="k">class</span> <span class="nc">_InlineBodyTransformer</span><span class="p">(</span><span class="n">TrackedContextTransformer</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func_name</span><span class="p">,</span> <span class="n">param_names</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func_name</span> <span class="o">=</span> <span class="n">func_name</span>
+        <span class="c1"># print(&quot;Func {} takes parameters {}&quot;.format(func_name, param_names))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">param_names</span> <span class="o">=</span> <span class="n">param_names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_break_block</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">=</span> <span class="n">n</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">had_return</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">had_yield</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">visit_Name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="c1"># Check if this is a parameter, and hasn&#39;t had another value assigned to it</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">param_names</span><span class="p">:</span>
+            <span class="c1"># print(&quot;Found parameter reference {}&quot;.format(node.id))</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">:</span>
+                <span class="c1"># If so, get its value from the argument dictionary</span>
+                <span class="k">return</span> <span class="n">make_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func_name</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;ctx&#39;</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">())))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># print(&quot;But it&#39;s been overwritten to {} = {}&quot;.format(node.id, self.ctxt[node.id]))</span>
+                <span class="k">pass</span>
+        <span class="k">return</span> <span class="n">node</span>
+
+    <span class="k">def</span> <span class="nf">visit_Return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_break_block</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;miniutils.pragma.inline cannot handle returns from within a loop&quot;</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">Assign</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">make_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func_name</span><span class="p">,</span> <span class="s1">&#39;return&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Store</span><span class="p">)],</span>
+                                     <span class="n">value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)))</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">Break</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">had_return</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="k">def</span> <span class="nf">visit_Yield</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">had_yield</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">make_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func_name</span><span class="p">,</span> <span class="s1">&#39;yield&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">),</span>
+                                               <span class="n">attr</span><span class="o">=</span><span class="s1">&#39;append&#39;</span><span class="p">,</span>
+                                               <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">),</span>
+                            <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)],</span>
+                            <span class="n">keywords</span><span class="o">=</span><span class="p">[])</span>
+        <span class="k">return</span> <span class="n">node</span>
+
+    <span class="k">def</span> <span class="nf">visit_YieldFrom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">had_yield</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">make_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func_name</span><span class="p">,</span> <span class="s1">&#39;yield&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">),</span>
+                                           <span class="n">attr</span><span class="o">=</span><span class="s1">&#39;extend&#39;</span><span class="p">,</span>
+                                           <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">),</span>
+                        <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)],</span>
+                        <span class="n">keywords</span><span class="o">=</span><span class="p">[])</span>
+
+    <span class="k">def</span> <span class="nf">visit_For</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">orig_in_break_block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_break_block</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_break_block</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_break_block</span> <span class="o">=</span> <span class="n">orig_in_break_block</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="k">def</span> <span class="nf">visit_While</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">orig_in_break_block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_break_block</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_break_block</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_break_block</span> <span class="o">=</span> <span class="n">orig_in_break_block</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="k">def</span> <span class="nf">visit_FunctionDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">node</span>
+
+    <span class="k">def</span> <span class="nf">visit_AsyncFunctionDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">node</span>
+
+    <span class="k">def</span> <span class="nf">visit_ClassDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">node</span>
+
+
+<span class="k">class</span> <span class="nc">InlineTransformer</span><span class="p">(</span><span class="n">TrackedContextTransformer</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">funs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">funs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">funs</span> <span class="o">=</span> <span class="n">funs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code_blocks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span> <span class="o">=</span> <span class="n">max_depth</span>
+
+    <span class="k">def</span> <span class="nf">nested_visit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nodes</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;When we visit a block of statements, create a new &quot;code block&quot; and push statements into it&quot;&quot;&quot;</span>
+        <span class="n">lst</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lst</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">res</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">lst</span> <span class="o">+=</span> <span class="n">res</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">lst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code_blocks</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">lst</span>
+
+    <span class="k">def</span> <span class="nf">generic_visit_less</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="o">*</span><span class="n">without</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">field</span><span class="p">,</span> <span class="n">old_value</span> <span class="ow">in</span> <span class="n">ast</span><span class="o">.</span><span class="n">iter_fields</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">without</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">old_value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">new_values</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">old_value</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">):</span>
+                        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="k">continue</span>
+                        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">):</span>
+                            <span class="n">new_values</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                            <span class="k">continue</span>
+                    <span class="n">new_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                <span class="n">old_value</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">new_values</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">old_value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">):</span>
+                <span class="n">new_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">old_value</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">new_node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="nb">delattr</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">setattr</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">new_node</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">node</span>
+
+    <span class="k">def</span> <span class="nf">visit_Call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;When we see a function call, insert the function body into the current code block, then replace the call</span>
+<span class="sd">        with the return expression &quot;&quot;&quot;</span>
+        <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="n">node_fun</span> <span class="o">=</span> <span class="n">resolve_name_or_attribute</span><span class="p">(</span><span class="n">resolve_literal</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="p">(</span><span class="n">fun</span><span class="p">,</span> <span class="n">fname</span><span class="p">,</span> <span class="n">fsig</span><span class="p">,</span> <span class="n">fbody</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">funs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">fun</span> <span class="o">!=</span> <span class="n">node_fun</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span><span class="p">):</span>
+                <span class="n">args_dict_name</span> <span class="o">=</span> <span class="n">DICT_FMT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fname</span><span class="o">=</span><span class="n">fname</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">i</span><span class="p">)</span>
+                <span class="n">n</span> <span class="o">=</span> <span class="n">i</span>  <span class="c1"># This is redundant, but a bit clearer and safer than just referencing i later</span>
+                <span class="k">if</span> <span class="n">args_dict_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">:</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Inline hit recursion limit, using normal function call&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">node</span>
+
+            <span class="n">func_for_inlining</span> <span class="o">=</span> <span class="n">_InlineBodyTransformer</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">fsig</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+            <span class="n">fbody</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">func_for_inlining</span><span class="o">.</span><span class="n">visit_many</span><span class="p">(</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">fbody</span><span class="p">)))</span>
+
+            <span class="c1"># print(self.code_blocks)</span>
+            <span class="n">cur_block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_blocks</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">new_code</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="c1"># Load arguments into their appropriate variables</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span>
+            <span class="n">flattened_args</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Starred</span><span class="p">):</span>
+                    <span class="n">a</span> <span class="o">=</span> <span class="n">constant_iterable</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">a</span><span class="p">:</span>
+                        <span class="n">flattened_args</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Cannot inline function call that uses non-constant star args&quot;</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="n">node</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">flattened_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+            <span class="n">keywords</span> <span class="o">=</span> <span class="p">[(</span><span class="n">kw</span><span class="o">.</span><span class="n">arg</span><span class="p">,</span> <span class="n">kw</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">kw</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">keywords</span> <span class="k">if</span> <span class="n">kw</span><span class="o">.</span><span class="n">arg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="n">kw_dict</span> <span class="o">=</span> <span class="p">[</span><span class="n">kw</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">kw</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">keywords</span> <span class="k">if</span> <span class="n">kw</span><span class="o">.</span><span class="n">arg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="n">kw_dict</span> <span class="o">=</span> <span class="n">kw_dict</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">kw_dict</span> <span class="k">else</span> <span class="kc">None</span>
+
+            <span class="n">bound_args</span> <span class="o">=</span> <span class="n">fsig</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="o">*</span><span class="n">flattened_args</span><span class="p">,</span> <span class="o">**</span><span class="n">odict</span><span class="p">(</span><span class="n">keywords</span><span class="p">))</span>
+            <span class="n">bound_args</span><span class="o">.</span><span class="n">apply_defaults</span><span class="p">()</span>
+
+            <span class="c1"># Create args dictionary</span>
+            <span class="n">final_args</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">for</span> <span class="n">arg_name</span><span class="p">,</span> <span class="n">arg_value</span> <span class="ow">in</span> <span class="n">bound_args</span><span class="o">.</span><span class="n">arguments</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg_value</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                    <span class="n">arg_value</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">Tuple</span><span class="p">(</span><span class="n">elts</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">arg_value</span><span class="p">),</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">())</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg_value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                    <span class="n">keys</span><span class="p">,</span> <span class="n">values</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="nb">list</span><span class="p">(</span><span class="n">arg_value</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+                    <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Str</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">]</span>
+                    <span class="n">values</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+                    <span class="n">arg_value</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">Dict</span><span class="p">(</span><span class="n">keys</span><span class="o">=</span><span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">)</span>
+                <span class="c1"># fun_name[&#39;param_name&#39;] = param_value</span>
+                <span class="n">final_args</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">arg_name</span><span class="p">,</span> <span class="n">arg_value</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">kw_dict</span><span class="p">:</span>
+                <span class="n">final_args</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="kc">None</span><span class="p">,</span> <span class="n">kw_dict</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">func_for_inlining</span><span class="o">.</span><span class="n">had_yield</span><span class="p">:</span>
+                <span class="n">final_args</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s1">&#39;yield&#39;</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">List</span><span class="p">(</span><span class="n">elts</span><span class="o">=</span><span class="p">[])))</span>
+
+            <span class="c1"># fun_name = {}</span>
+            <span class="n">dict_call</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span>
+                <span class="n">func</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;dict&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">()),</span>
+                <span class="n">args</span><span class="o">=</span><span class="p">[],</span>
+                <span class="n">keywords</span><span class="o">=</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="n">arg</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">val</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">final_args</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">new_code</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">Assign</span><span class="p">(</span>
+                <span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">args_dict_name</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Store</span><span class="p">())],</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">dict_call</span>
+            <span class="p">))</span>
+
+            <span class="c1"># Process assignments before resolving body</span>
+            <span class="n">cur_block</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">visit_many</span><span class="p">(</span><span class="n">new_code</span><span class="p">))</span>
+
+            <span class="c1"># Inline function code</span>
+            <span class="n">new_body</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">visit_many</span><span class="p">(</span><span class="n">fbody</span><span class="p">))</span>
+
+            <span class="c1"># cur_block.append(self.visit(ast.For(target=ast.Name(id=&#39;____&#39;, ctx=ast.Store()),</span>
+            <span class="c1">#                                     iter=ast.List(elts=[ast.NameConstant(None)], ctx=ast.Load()),</span>
+            <span class="c1">#                                     body=new_body,</span>
+            <span class="c1">#                                     orelse=[])))</span>
+            <span class="n">cur_block</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;____&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Store</span><span class="p">()),</span>
+                                     <span class="nb">iter</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">List</span><span class="p">(</span><span class="n">elts</span><span class="o">=</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">NameConstant</span><span class="p">(</span><span class="kc">None</span><span class="p">)],</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">()),</span>
+                                     <span class="n">body</span><span class="o">=</span><span class="n">new_body</span><span class="p">,</span>
+                                     <span class="n">orelse</span><span class="o">=</span><span class="p">[]))</span>
+
+            <span class="c1"># fun_name[&#39;return&#39;]</span>
+            <span class="k">if</span> <span class="n">func_for_inlining</span><span class="o">.</span><span class="n">had_yield</span> <span class="ow">or</span> <span class="n">func_for_inlining</span><span class="o">.</span><span class="n">had_return</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100000</span><span class="p">):</span>
+                    <span class="n">output_name</span> <span class="o">=</span> <span class="n">DICT_FMT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fname</span><span class="o">=</span><span class="n">fname</span> <span class="o">+</span> <span class="s1">&#39;_return&#39;</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">j</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">output_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="p">:</span>
+                        <span class="k">break</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Function </span><span class="si">{}</span><span class="s2"> called and returned too many times during inlining, not able to &quot;</span>
+                                       <span class="s2">&quot;put the return value into a uniquely named variable&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fname</span><span class="p">))</span>
+
+                <span class="k">if</span> <span class="n">func_for_inlining</span><span class="o">.</span><span class="n">had_yield</span><span class="p">:</span>
+                    <span class="n">cur_block</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">Assign</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">output_name</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Store</span><span class="p">())],</span>
+                                                           <span class="n">value</span><span class="o">=</span><span class="n">make_name</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="s1">&#39;yield&#39;</span><span class="p">,</span> <span class="n">n</span><span class="p">))))</span>
+                <span class="k">elif</span> <span class="n">func_for_inlining</span><span class="o">.</span><span class="n">had_return</span><span class="p">:</span>
+                    <span class="n">get_call</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span>
+                        <span class="n">func</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span>
+                            <span class="n">value</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">args_dict_name</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">()),</span>
+                            <span class="n">attr</span><span class="o">=</span><span class="s1">&#39;get&#39;</span><span class="p">,</span>
+                            <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">()),</span>
+                        <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Str</span><span class="p">(</span><span class="s1">&#39;return&#39;</span><span class="p">),</span> <span class="n">ast</span><span class="o">.</span><span class="n">NameConstant</span><span class="p">(</span><span class="kc">None</span><span class="p">)],</span>
+                        <span class="n">keywords</span><span class="o">=</span><span class="p">[]</span>
+                    <span class="p">)</span>
+                    <span class="n">cur_block</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">Assign</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">output_name</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Store</span><span class="p">())],</span>
+                                                           <span class="n">value</span><span class="o">=</span><span class="n">get_call</span><span class="p">)))</span>
+
+                <span class="n">return_node</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">output_name</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">())</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">return_node</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">NameConstant</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+            <span class="n">cur_block</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">Delete</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">args_dict_name</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">ast</span><span class="o">.</span><span class="n">Del</span><span class="p">())])))</span>
+            <span class="k">return</span> <span class="n">return_node</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">node</span>
+
+    <span class="c1">###################################################</span>
+    <span class="c1"># From here on down, we just have handlers for ever AST node that has a &quot;code block&quot; (stmt*)</span>
+    <span class="c1">###################################################</span>
+
+    <span class="k">def</span> <span class="nf">visit_FunctionDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">push</span><span class="p">({},</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_AsyncFunctionDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">push</span><span class="p">({},</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_ClassDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">push</span><span class="p">({},</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctxt</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_For</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">orelse</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;orelse&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_AsyncFor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">orelse</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;orelse&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_While</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">orelse</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;orelse&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_If</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">orelse</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;orelse&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_With</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_AsyncWith</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_Try</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">orelse</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">finalbody</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">finalbody</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;orelse&#39;</span><span class="p">,</span> <span class="s1">&#39;finalbody&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_Module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_ExceptHandler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nested_visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generic_visit_less</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">)</span>
+
+
+<span class="c1"># @magic_contract</span>
+<div class="viewcode-block" id="inline"><a class="viewcode-back" href="../../inline.html#pragma.inline">[docs]</a><span class="k">def</span> <span class="nf">inline</span><span class="p">(</span><span class="o">*</span><span class="n">funs_to_inline</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    :param funs_to_inline: The inner called function that should be inlined in the wrapped function</span>
+<span class="sd">    :type funs_to_inline: tuple(function)</span>
+<span class="sd">    :param max_depth: The maximum number of times to inline the provided function (limits recursion)</span>
+<span class="sd">    :type max_depth: int</span>
+<span class="sd">    :return: The unrolled function, or its source code if requested</span>
+<span class="sd">    :rtype: Callable</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">funs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">fun_to_inline</span> <span class="ow">in</span> <span class="n">funs_to_inline</span><span class="p">:</span>
+        <span class="n">fname</span> <span class="o">=</span> <span class="n">fun_to_inline</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">fsig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">fun_to_inline</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">fbody</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">function_ast</span><span class="p">(</span><span class="n">fun_to_inline</span><span class="p">)</span>
+
+        <span class="n">funs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">fun_to_inline</span><span class="p">,</span> <span class="n">fname</span><span class="p">,</span> <span class="n">fsig</span><span class="p">,</span> <span class="n">fbody</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">make_function_transformer</span><span class="p">(</span><span class="n">InlineTransformer</span><span class="p">,</span>
+                                     <span class="s1">&#39;inline&#39;</span><span class="p">,</span>
+                                     <span class="s1">&#39;Inline the specified function within the decorated function&#39;</span><span class="p">,</span>
+                                     <span class="n">funs</span><span class="o">=</span><span class="n">funs</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="n">max_depth</span><span class="p">)(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, scnerd.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0.1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

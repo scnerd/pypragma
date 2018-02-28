@@ -1,0 +1,311 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>De-index Arrays &mdash; pypragma 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="genindex.html"/>
+        <link rel="search" title="Search" href="search.html"/>
+    <link rel="top" title="pypragma 0.1.0 documentation" href="index.html"/>
+        <link rel="next" title="Unroll" href="unroll.html"/>
+        <link rel="prev" title="Collapse Literals" href="collapse_literals.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> pypragma
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="collapse_literals.html">Collapse Literals</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">De-index Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="unroll.html">Unroll</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inline.html">Inlining Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">TODO List</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">pypragma</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>De-index Arrays</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/deindex.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="de-index-arrays">
+<h1>De-index Arrays<a class="headerlink" href="#de-index-arrays" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="pragma.deindex">
+<code class="descclassname">pragma.</code><code class="descname">deindex</code><span class="sig-paren">(</span><em>iterable</em>, <em>iterable_name</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pragma/deindex.html#deindex"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pragma.deindex" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kwargs</strong> (<code class="docutils literal"><span class="pre">dict</span></code>) – Any other environmental variables to provide during unrolling</li>
+<li><strong>args</strong> (<code class="docutils literal"><span class="pre">tuple</span></code>) – Other command line arguments (see <code class="xref py py-func docutils literal"><span class="pre">collapse_literals()</span></code> for documentation)</li>
+<li><strong>iterable</strong> (<code class="docutils literal"><span class="pre">iterable</span></code>) – The list to deindex in the target function</li>
+<li><strong>iterable_name</strong> (<code class="docutils literal"><span class="pre">str</span></code>) – The list’s name (must be unique if deindexing multiple lists)</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">The unrolled function, or its source code if requested</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><code class="docutils literal"><span class="pre">Callable</span></code></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<p>Convert literal indexing operations for a given array into named value references. The new value names are de-indexed and stashed in the function’s closure so that the resulting code both uses no literal indices and still behaves as if it did. Variable indices are unaffected.</p>
+<p>For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">v</span> <span class="o">=</span> <span class="p">[</span><span class="nb">object</span><span class="p">(),</span> <span class="nb">object</span><span class="p">(),</span> <span class="nb">object</span><span class="p">()]</span>
+
+<span class="nd">@pragma</span><span class="o">.</span><span class="n">deindex</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="s1">&#39;v&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">yield</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">yield</span> <span class="n">v</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+
+<span class="c1"># ... f becomes ...</span>
+
+<span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">yield</span> <span class="n">v_0</span>  <span class="c1"># This is defined as v_0 = v[0] by the function&#39;s closure</span>
+    <span class="k">yield</span> <span class="n">v</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+
+<span class="c1"># We can check that this works correctly</span>
+<span class="k">assert</span> <span class="nb">list</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="o">==</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+</pre></div>
+</div>
+<p>This can be easily stacked with <a class="reference internal" href="unroll.html#pragma.unroll" title="pragma.unroll"><code class="xref py py-func docutils literal"><span class="pre">pragma.unroll()</span></code></a> to unroll iterables in a function when their values are known at function definition time:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">funcs</span> <span class="o">=</span> <span class="p">[</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">**</span> <span class="mi">3</span><span class="p">]</span>
+
+<span class="nd">@pragma</span><span class="o">.</span><span class="n">deindex</span><span class="p">(</span><span class="n">funcs</span><span class="p">,</span> <span class="s1">&#39;funcs&#39;</span><span class="p">)</span>
+<span class="nd">@pragma</span><span class="o">.</span><span class="n">unroll</span><span class="p">(</span><span class="n">lf</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">funcs</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">run_func</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lf</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">funcs</span><span class="p">[</span><span class="n">j</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>
+
+<span class="c1"># ... Becomes ...</span>
+
+<span class="k">def</span> <span class="nf">run_func</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">funcs_0</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">funcs_1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">funcs_2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This could be used, for example, in a case where dynamically calling functions isn’t supported, such as in <code class="docutils literal"><span class="pre">numba.jit</span></code> or <code class="docutils literal"><span class="pre">numba.cuda.jit</span></code>.</p>
+<p>Note that because the array being de-indexed is passed to the decorator, the value of the constant-defined variables (e.g. <code class="docutils literal"><span class="pre">v_0</span></code> in the code above) is “compiled” into the code of the function, and won’t update if the array is updated. Again, variable-indexed calls remain unaffected.</p>
+<p>Since names are (and must) be used as references to the array being de-indexed, it’s worth noting that any other local variable of the format <code class="docutils literal"><span class="pre">&quot;{iterable_name}_{i}&quot;</span></code> will get shadowed by this function. The string passed to <code class="docutils literal"><span class="pre">iterable_name</span></code> must be the name used for the iterable within the wrapped function.</p>
+<div class="admonition-todo admonition" id="index-0">
+<p class="first admonition-title">Todo</p>
+<p class="last">Support selecting lists by name only, and extracting the list value from the closure (e.g. to permit deindexing nested lists)</p>
+</div>
+</div>
+
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="unroll.html" class="btn btn-neutral float-right" title="Unroll" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="collapse_literals.html" class="btn btn-neutral" title="Collapse Literals" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, scnerd.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'0.1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
