@@ -210,3 +210,16 @@ class TestCollapseLiterals(PragmaTest):
             return 10
         ''')
         self.assertEqual(f.strip(), result.strip())
+
+    def test_funcs2(self):
+        my_list = [1, 2, 3]
+
+        @pragma.collapse_literals(return_source=True)
+        def f(x):
+            return x + sum([sum(my_list), min(my_list), max(my_list)])
+
+        result = dedent('''
+        def f(x):
+            return x + 10
+        ''')
+        self.assertEqual(f.strip(), result.strip())

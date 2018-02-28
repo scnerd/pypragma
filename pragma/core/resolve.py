@@ -255,6 +255,8 @@ def _resolve_literal(node, ctxt):
         return node.n
     elif isinstance(node, ast.Str):
         return node.s
+    elif isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return resolve_literal_list(node, ctxt)
     elif isinstance(node, ast.Index):
         return _resolve_literal(node.value, ctxt)
     elif isinstance(node, (ast.Slice, ast.ExtSlice)):
@@ -283,6 +285,28 @@ def resolve_literal_name(node, ctxt):
         else:
             log.debug("{} is an AST node, but can't safely be made more specific".format(res))
     return res
+
+
+def resolve_literal_list(node, ctxt):
+    """Returns, if possible, the entirely literal list or tuple.
+
+    This differs from constant iterable in that the entire list, including all elements, must resolve to literals
+    It is not sufficient for the top level structure to be iterable
+    """
+    val = []
+    for e in node.elts:
+        e = _resolve_literal(e, ctxt)
+        if isinstance(e, ast.AST):
+            return node
+        val.append(e)
+    if isinstance(node, ast.Tuple):
+        return tuple(val)
+    elif isinstance(node, ast.List):
+        return list(val)
+    elif isinstance(node, ast.Set):
+        return set(val)
+    else:
+        raise TypeError("Attempted to resolve {} as if it were a literal list, tuple, or set".format(node))
 
 
 def resolve_literal_subscript(node, ctxt):
