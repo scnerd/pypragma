@@ -171,7 +171,7 @@ def make_function_transformer(transformer_type, name, description, **transformer
     @magic_contract
     def transform(return_source=False, save_source=True, function_globals=None, **kwargs):
         """
-        :param return_source: Returns the unrolled function's source code instead of compiling it
+        :param return_source: Returns the transformed function's source code instead of compiling it
         :type return_source: bool
         :param save_source: Saves the function source code to a tempfile to make it inspectable
         :type save_source: bool
@@ -179,7 +179,7 @@ def make_function_transformer(transformer_type, name, description, **transformer
         :type function_globals: dict|None
         :param kwargs: Any other environmental variables to provide during unrolling
         :type kwargs: dict
-        :return: The unrolled function, or its source code if requested
+        :return: The transformed function, or its source code if requested
         :rtype: Callable
         """
 

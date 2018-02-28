@@ -10,9 +10,17 @@ Welcome to pypragma's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   collapse_literals
+   deindex
+   unroll
+   inline
+   todo
+
 
 Overview
 ========
+
+.. highlight:: ipython3
 
 PyPragma is a set of tools for performing in-place code modification, inspired by compiler directives in C. These modifications are intended to make no functional changes to the execution of code. In C, this is used to increase code performance or make certain tradeoffs (often between the size of the binary and its execution speed). In Python, these changes are most applicable when leveraging code generation libraries (such as Numba or Tangent) where the use of certain Python features is disallowed. By transforming the code in-place, disallowed features can be converted to allowed syntax at runtime without sacrificing the dynamic nature of python code.
 
@@ -120,23 +128,37 @@ Certain keywords are reserved, of course, as will be defined in the documentatio
 
 A side effect of the proper Python syntax is that functions can have their source code retrieved by any normal Pythonic reflection::
 
-   In [1]: @pragma.unroll(num_pows=3)
+    In [1]: @pragma.unroll(num_pows=3)
       ...: def pows(i):
       ...:    for x in range(num_pows):
       ...:       yield i ** x
       ...:
 
-   In [2]: pows??
-   Signature: pows(i)
-   Source:
-   def pows(i):
-       yield i ** 0
-       yield i ** 1
-       yield i ** 2
-   File:      /tmp/tmpmn5bza2j
-   Type:      function
+    In [2]: pows??
+    Signature: pows(i)
+    Source:
+    def pows(i):
+        yield i ** 0
+        yield i ** 1
+        yield i ** 2
+    File:      /tmp/tmpmn5bza2j
+    Type:      function
 
-As a utility, primarily for testing and debugging, the source code can be easily retrieved from each decorator *instead* of the transformed function by using the ``return_source=True`` argument.
+In general, all decorators consider a value to be known if:
+
+- It is defined in the function's closure, and is not modified earlier in the function
+- It is defined as a keyword global to the decorator, and is not modified earlier in the function
+- It is a literal
+- It is a variable assigned a literal earlier in the function (even if it overrides a previously known value)
+- It is a known index into a known list or tuple (dictionaries are not yet supported)
+
+Some special cases include:
+
+- In ``collapse_literals``, any operation on known values gets reduced to a known value
+
+.. todo:: Support deterministic functions of known values
+
+Additionally, as a utility primarily for testing and debugging, the source code can be easily retrieved from each decorator *instead* of the transformed function by using the ``return_source=True`` argument.
 
 Quick Examples
 ==============

@@ -66,7 +66,6 @@ If the branch is constant, and thus known at decoration time, then this flaw won
         x = 2
         return 2
 
-TODO:
-
-- Support running functions that consist entirely of known arguments
-- Support dictionaries and sets
+.. todo:: Support running functions that consist entirely of known arguments
+.. todo:: Support set/get on dictionaries
+.. todo:: Support sets?
