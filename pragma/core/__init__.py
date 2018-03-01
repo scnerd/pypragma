@@ -42,7 +42,7 @@ def _pretty_str(o):
         if isinstance(o, ast.Attribute):
             return "{}.{}".format(_pretty_str(o.value), o.attr)
 
-        return astor.to_source(o)
+        return astor.to_source(o).strip()
     else:
         return str(o)
 

@@ -14,6 +14,7 @@ Welcome to pypragma's documentation!
    deindex
    unroll
    inline
+   lift
    todo
 
 

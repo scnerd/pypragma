@@ -43,7 +43,7 @@ class CollapseTransformer(TrackedContextTransformer):
                     result.append(res)
             return result
         else:
-            return self.generic_visit(node)
+            return super().visit_If(node)
 
 
 # Collapse defined literal values, and operations thereof, where possible
