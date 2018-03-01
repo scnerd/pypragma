@@ -123,6 +123,8 @@ For the produced function to be truly functional (as much as can be in Python), 
         import sys
         return sys.version_info
 
+.. note:: Any imported objects that aren't modules, such as functions, classes, or shared variables, aren't automatically imported since they are indistinguishable from being just another global variable. These must be included in the ``lift_globals`` argument list.
+
 Note that, just like global variables, global imports can't be checked for necessity and so are universally included. Which modules get imported can be filtered by passing a list to ``imports``::
 
     In [1]: import pragma
