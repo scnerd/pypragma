@@ -242,3 +242,18 @@ class TestCollapseLiterals(PragmaTest):
             return x + 10
         ''')
         self.assertEqual(f.strip(), result.strip())
+
+    # # Implement the functionality to get this test to pass
+    # def test_assign_to_iterable(self):
+    #     @pragma.collapse_literals(return_source=True)
+    #     def f():
+    #         x = [1, 2, 3]
+    #         x[1] = 4
+    #         return x[1]
+    #
+    #     self.assertSourceEqual(f, '''
+    #     def f():
+    #         x = [1, 2, 3]
+    #         x[1] = 4
+    #         return 4
+    #     ''')
