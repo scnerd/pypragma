@@ -127,13 +127,31 @@ class TestCollapseLiterals(PragmaTest):
 
             self.assertIsInstance(w[-1].category(), UserWarning)
 
-    # TODO: implement the features to get this test to work
-    # def test_conditional_erasure(self):
+    def test_conditional_erasure(self):
+        @pragma.collapse_literals(return_source=True)
+        def f(y):
+            x = 0
+            if y == x:
+                x = 1
+            return x
+
+        result = dedent('''
+        def f(y):
+            x = 0
+            if y == 0:
+                x = 1
+            return x
+        ''')
+        self.assertSourceEqual(f, result)
+
+    # # TODO: Implement the features to get this test to pass
+    # def test_conditional_partial_erasure(self):
     #     @pragma.collapse_literals(return_source=True)
     #     def f(y):
     #         x = 0
     #         if y == x:
     #             x = 1
+    #             return x
     #         return x
     #
     #     result = dedent('''
@@ -141,6 +159,7 @@ class TestCollapseLiterals(PragmaTest):
     #         x = 0
     #         if y == 0:
     #             x = 1
+    #             return 1
     #         return x
     #     ''')
     #     self.assertEqual(f.strip(), result.strip())
@@ -199,3 +218,42 @@ class TestCollapseLiterals(PragmaTest):
             return -4
         ''')
         self.assertEqual(f.strip(), result.strip())
+
+    def test_funcs(self):
+        @pragma.collapse_literals(return_source=True)
+        def f():
+            return sum(range(5))
+
+        result = dedent('''
+        def f():
+            return 10
+        ''')
+        self.assertEqual(f.strip(), result.strip())
+
+    def test_funcs2(self):
+        my_list = [1, 2, 3]
+
+        @pragma.collapse_literals(return_source=True)
+        def f(x):
+            return x + sum([sum(my_list), min(my_list), max(my_list)])
+
+        result = dedent('''
+        def f(x):
+            return x + 10
+        ''')
+        self.assertEqual(f.strip(), result.strip())
+
+    # # Implement the functionality to get this test to pass
+    # def test_assign_to_iterable(self):
+    #     @pragma.collapse_literals(return_source=True)
+    #     def f():
+    #         x = [1, 2, 3]
+    #         x[1] = 4
+    #         return x[1]
+    #
+    #     self.assertSourceEqual(f, '''
+    #     def f():
+    #         x = [1, 2, 3]
+    #         x[1] = 4
+    #         return 4
+    #     ''')

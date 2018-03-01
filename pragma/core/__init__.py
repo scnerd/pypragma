@@ -1,8 +1,12 @@
 import ast
 import inspect
+import logging
+import functools
 
 import astor
 from miniutils.magic_contract import safe_new_contract
+
+log = logging.getLogger(__name__.split('.')[0])
 
 
 def _is_iterable(x):
@@ -27,6 +31,37 @@ try:
 except AttributeError:
     # visit isn't defined in this version of astor
     pass
+
+
+def _pretty_str(o):
+    if isinstance(o, ast.AST):
+        if isinstance(o, ast.Name):
+            return o.id
+        if isinstance(o, ast.Call):
+            return _pretty_str(o.func)
+        if isinstance(o, ast.Attribute):
+            return "{}.{}".format(_pretty_str(o.value), o.attr)
+
+        return astor.to_source(o).strip()
+    else:
+        return str(o)
+
+
+def _log_call(f):
+    @functools.wraps(f)
+    def inner(*args, **kwargs):
+        result = f(*args, **kwargs)
+        log.debug("{}({}) -> {}".format(
+            f.__name__,
+            ', '.join(
+                [_pretty_str(a) for a in args] +
+                ["{}={}".format(_pretty_str(k), _pretty_str(v)) for k, v in kwargs.items()]
+            ),
+            result
+        ))
+        return result
+    return inner
+
 
 from .stack import DictStack
 from .resolve import *
