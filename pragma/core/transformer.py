@@ -31,31 +31,6 @@ def function_ast(f):
     return root, root.body[0].body, f_file
 
 
-@magic_contract
-def _assign_names(node):
-    """
-    Gets names from a assign-to tuple in flat form, just to know what's affected
-    "x=3" -> "x"
-    "a,b=4,5" -> ["a", "b"]
-    "(x,(y,z)),(a,) = something" -> ["x", "y", "z", "a"]
-
-    :param node: The AST node to resolve to a list of names
-    :type node: AST
-    :return: The flattened list of names referenced in this node
-    :rtype: iterable
-    """
-    if isinstance(node, ast.Name):
-        yield node.id
-    elif isinstance(node, ast.Tuple):
-        for e in node.elts:
-            yield from _assign_names(e)
-    elif isinstance(node, ast.Subscript):
-        yield from _assign_names(node.value)
-    elif isinstance(node, (tuple, list)):
-        for e in node:
-            yield from _assign_names(e)
-
-
 class DebugTransformerMixin:  # pragma: nocover
     def visit(self, node):
         orig_node_code = astor.to_source(node).strip()
@@ -246,10 +221,20 @@ class TrackedContextTransformer(ast.NodeTransformer):
             self._assign(node.target, None)
         return node
 
+    def _delete(self, node):
+        if isinstance(node, ast.Name):
+            del self.ctxt[node.id]
+        elif isinstance(node, ast.Tuple):
+            for n in node.elts:
+                self._delete(n)
+        elif isinstance(node, (tuple, list)):
+            for n in node:
+                self._delete(n)
+        else:
+            warnings.warn("{} doesn't yet know how to handle deleting {}".format(self, node))
+
     def visit_Delete(self, node):
-        for targ in node.targets:
-            for assgn in _assign_names(targ):
-                del self[assgn]
+        self._delete(node.targets)
         return self.generic_visit(node)
 
     ###################################################
