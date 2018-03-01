@@ -354,9 +354,6 @@ def make_function_transformer(transformer_type, name, description, **transformer
             if return_source or save_source:
                 try:
                     source = astor.to_source(f_mod)
-                except ImportError:  # pragma: nocover
-                    raise ImportError("miniutils.pragma.{name} requires 'astor' to be installed to obtain source code"
-                                      .format(name=name))
                 except Exception as ex:  # pragma: nocover
                     raise RuntimeError(astor.dump_tree(f_mod)) from ex
             else:

@@ -4,7 +4,7 @@ import pragma
 from .test_pragma import PragmaTest
 
 
-class TestInline(PragmaTest):
+class TestCleanup(PragmaTest):
     def test_basic_assign(self):
         @pragma.cleanup(return_source=True)
         def f():
