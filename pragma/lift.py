@@ -1,6 +1,7 @@
 import ast
 import astor
 import tempfile
+import sys
 from miniutils import magic_contract, optional_argument_decorator
 from types import ModuleType
 
@@ -9,6 +10,10 @@ from .core.transformer import function_ast
 from .core.resolve import make_ast_from_literal
 
 _exclude = {'__builtin__', '__builtins__', 'builtin', 'builtins'}
+if sys.version_info < (3, 6):
+    _ast_str_types = ast.Str
+else:
+    _ast_str_types = (ast.Str, ast.JoinedStr)
 
 
 @optional_argument_decorator
@@ -59,7 +64,7 @@ def lift(return_source=False, save_source=True, annotate_types=False, defaults=F
                 else:
                     free_vars.append((k, v))
 
-            if isinstance(f_body[0], ast.Expr) and isinstance(f_body[0].value, (ast.Str, ast.JoinedStr)):
+            if isinstance(f_body[0], ast.Expr) and isinstance(f_body[0].value, _ast_str_types):
                 f_docstring = f_body[:1]
                 f_body = f_body[1:]
             else:
