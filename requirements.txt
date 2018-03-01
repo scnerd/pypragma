@@ -1,5 +1,6 @@
 miniutils
 astor
+vulture
 
 coveralls
 coverage

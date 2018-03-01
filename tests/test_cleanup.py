@@ -29,3 +29,14 @@ class TestCleanup(PragmaTest):
             return 5
         ''')
         self.assertEqual(f.strip(), result.strip())
+
+    def test_post_return(self):
+        @pragma.cleanup(return_source=True)
+        def f():
+            return 5
+            yield 3
+
+        self.assertSourceEqual(f, '''
+        def f():
+            return 5
+        ''')
