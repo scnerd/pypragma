@@ -142,7 +142,7 @@ class TestCollapseLiterals(PragmaTest):
                 x = 1
             return x
         ''')
-        self.assertEqual(f.strip(), result.strip())
+        self.assertSourceEqual(f, result)
 
     # # TODO: Implement the features to get this test to pass
     # def test_conditional_partial_erasure(self):

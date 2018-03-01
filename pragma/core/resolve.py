@@ -354,7 +354,7 @@ def resolve_literal_binop(node, ctxt):
     if lliteral and rliteral:
         try:
             return _collapse_map[type(node.op)](left, right)
-        except:
+        except Exception:
             warnings.warn(
                 "Binary op collapse failed. Collapsing skipped, but executing this function will likely fail."
                 " Error was:\n{}".format(traceback.format_exc()))

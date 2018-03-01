@@ -238,8 +238,12 @@ class TrackedContextTransformer(ast.NodeTransformer):
 
     def visit_AugAssign(self, node):
         node = copy.deepcopy(node)
-        self._assign(node.target, self.resolve_literal(ast.BinOp(op=node.op, left=node.target, right=node.value)))
         node.value = self.visit(node.value)
+        new_val = self.resolve_literal(ast.BinOp(op=node.op, left=node.target, right=node.value))
+        if not isinstance(new_val, ast.BinOp):
+            self._assign(node.target, new_val)
+        else:
+            self._assign(node.target, None)
         return node
 
     def visit_Delete(self, node):
@@ -272,27 +276,26 @@ class TrackedContextTransformer(ast.NodeTransformer):
         return node
 
     def visit_For(self, node):
+        node.iter = self.visit(node.iter)
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        node.iter = self.visit(node.iter)
         return self.generic_visit_less(node, 'body', 'orelse', 'iter')
 
     def visit_AsyncFor(self, node):
+        node.iter = self.visit(node.iter)
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        node.iter = self.visit(node.iter)
         return self.generic_visit_less(node, 'body', 'orelse', 'iter')
 
     def visit_While(self, node):
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        node.test = self.visit(node.test)
-        return self.generic_visit_less(node, 'body', 'orelse', 'test')
+        return self.generic_visit_less(node, 'body', 'orelse')
 
     def visit_If(self, node):
+        node.test = self.visit(node.test)
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        node.test = self.visit(node.test)
         return self.generic_visit_less(node, 'body', 'orelse', 'test')
 
     def visit_With(self, node):
