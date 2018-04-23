@@ -59,6 +59,12 @@ Such a modification can only be done by the programmer if the dynamic features a
 This example is converted, in place and at runtime, to exactly the unrolled code above.
 
 
+Documentation
+=============
+
+Complete documentation can be found over at [RTFD](http://pypragma.readthedocs.io/en/latest/).
+
+
 Installation
 ============
 
