@@ -62,7 +62,7 @@ This example is converted, in place and at runtime, to exactly the unrolled code
 Documentation
 =============
 
-Complete documentation can be found over at [RTFD](http://pypragma.readthedocs.io/en/latest/).
+Complete documentation can be found over at `RTFD <http://pypragma.readthedocs.io/en/latest/>`_.
 
 
 Installation
