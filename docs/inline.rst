@@ -23,16 +23,17 @@ To inline a function ``f`` into the code of another function ``g``, use ``pragma
         z = y + 3
         return f(z * 4)
 
-    # ... g Becomes ...
+    # ... g Becomes something like ...
 
     def g(y):
         z = y + 3
-        _f = {}
-        _f['x'] = z * 4
-        for ____ in [None]:
-            _f = _f['x'] ** 2
-            break
-        return _f
+        _f = dict(x=z * 4)  # Store arguments
+        for ____ in [None]:  # Function body
+            _f['return'] = _f['x'] ** 2  # Store the "return"ed value
+            break  # Return, terminate the function body
+        _f_return = _f.get('return', None)  # Retrieve the returned value
+        del _f  # Discard everything else
+        return _f_return
 
 This loop can be removed, if it's not necessary, using :func:``pragma.unroll``. This can be accomplished if there are no returns within a conditional or loop block. In this case::
 
@@ -54,4 +55,17 @@ This loop can be removed, if it's not necessary, using :func:``pragma.unroll``. 
         _f = _f['x'] ** 2
         return _f
 
+It needs to be noted that, besides arguments getting stored into a dictionary, other variable names remain unaltered when inlined. Thus, if there are shared variable names in the two functions, they might overwrite each other in the resulting inlined function.
+
+.. todo:: Fix name collision by name-mangling non-free variables
+
 Eventually, this could be collapsed using :func:``pragma.collapse_literals``, to produce simply ``return ((y + 3) * 4) ** 2``, but dictionaries aren't yet supported for collapsing.
+
+When inlining a generator function, the function's results are collapsed into a list, which is then returned. This will break in two main scenarios:
+
+- The generator never ends, or consumes excessive amounts of resources.
+- The calling code relies on the resulting generator being more than just iterable.
+
+In general, either this won't be an issue, or you should know better than to try to inline the infinite generator.
+
+.. todo:: Support inlining a generator into another generator by merging the functions together. E.g., ``for x in my_range(5): yield x + 2`` becomes ``i = 0; while i < 5: yield i + 2; i += 1`` (or something vaguely like that).

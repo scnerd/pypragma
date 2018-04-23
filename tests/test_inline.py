@@ -217,7 +217,7 @@ class TestInline(PragmaTest):
 
         result = dedent('''
         def f(x):
-            _g_0 = dict(y=x, yield=[])
+            _g_0 = dict([('yield', [])], y=x)
             for ____ in [None]:
                 for i in range(_g_0['y']):
                     _g_0['yield'].append(i)
@@ -281,3 +281,31 @@ class TestInline(PragmaTest):
 
         print(pragma.inline(g, return_source=True)(f))
         self.assertEqual(f(), pragma.inline(g)(f)())
+
+    def test_bug_my_range(self):
+        def my_range(x):
+            i = 0
+            while i < x:
+                yield i
+                i += 1
+
+        @pragma.unroll
+        @pragma.inline(my_range)
+        def test_my_range():
+            return list(my_range(5))
+
+        result = dedent('''
+        def test_my_range():
+            _my_range_0 = dict([('yield', [])], x=5)
+            i = 0
+            while i < _my_range_0['x']:
+                _my_range_0['yield'].append(i)
+                i += 1
+            _my_range_return_0 = _my_range_0['yield']
+            del _my_range_0
+            return list(_my_range_return_0)
+        ''')
+
+        self.assertSourceEqual(test_my_range, result)
+        self.assertEqual(test_my_range(), [0, 1, 2, 3, 4])
+
