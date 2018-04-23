@@ -133,7 +133,7 @@ Certain keywords are reserved, of course, as will be defined in the documentatio
 
 A side effect of the proper Python syntax is that functions can have their source code retrieved by any normal Pythonic reflection:
 
-.. code-block:: ipython
+.. code-block:: python
 
    In [1]: @pragma.unroll(num_pows=3)
       ...: def pows(i):
@@ -159,9 +159,7 @@ Quick Examples
 Collapse Literals
 +++++++++++++++++
 
-:doc:`Complete documentation <collapse_literals>`:
-
-.. code-block:: ipython
+.. code-block:: python
 
    In [1]: @pragma.collapse_literals(x=5)
       ...: def f(y):
@@ -179,9 +177,7 @@ Collapse Literals
 De-index Arrays
 +++++++++++++++
 
-:doc:`Complete documentation <deindex>`:
-
-.. code-block:: ipython
+.. code-block:: python
 
    In [1]: fns = [math.sin, math.cos, math.tan]
 
@@ -208,7 +204,7 @@ De-index Arrays
 
 Note that, while it's not evident from the above printed source code, each variable ``fns_X`` is assigned to the value of ``fns[X]`` at the time when the decoration occurs:
 
-.. code-block:: ipython
+.. code-block:: python
 
    In [4]: call(0, math.pi)
    Out[4]: 1.2246467991473532e-16  # AKA, sin(pi) = 0
@@ -219,9 +215,7 @@ Note that, while it's not evident from the above printed source code, each varia
 Unroll
 ++++++
 
-:doc:`Complete documentation <unroll>`:
-
-.. code-block:: ipython
+.. code-block:: python
 
    In [1]: p_or_m = [1, -1]
 
@@ -246,9 +240,7 @@ Unroll
 Inline
 ++++++
 
-:doc:`Complete documentation <inline>`:
-
-.. code-block:: ipython
+.. code-block:: python
 
    In [1]: def sqr(x):
       ...:     return x ** 2
