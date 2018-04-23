@@ -62,8 +62,9 @@ class TestUnroll(PragmaTest):
             yield 1
             yield 2
             yield 5
-            for i in d:
-                yield i
+            yield 2
+            yield 1
+            yield 0
             yield x
             yield x
             yield x
@@ -271,6 +272,22 @@ class TestUnroll(PragmaTest):
         ''')
         self.assertEqual(f.strip(), result.strip())
 
+    def test_tuple_loop(self):
+        @pragma.unroll
+        def f():
+            for x, y in zip([1, 2, 3], [5, 6, 7]):
+                yield x + y
+
+        result = '''
+        def f():
+            yield 1 + 5
+            yield 2 + 6
+            yield 3 + 7
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f()), [6, 8, 10])
+
     def test_top_break(self):
         @pragma.unroll(return_source=True)
         def f():
@@ -300,3 +317,22 @@ class TestUnroll(PragmaTest):
                     break
         ''')
         self.assertEqual(f.strip(), result.strip())
+
+    def test_nonliteral_iterable(self):
+        def g(x):
+            return -x
+
+        @pragma.unroll
+        def f():
+            lst = [g(1), 2, 3]
+            for l in lst:
+                print(l)
+
+        result = '''
+        def f():
+            print(g(1))
+            print(2)
+            print(3)
+        '''
+
+        self.assertSourceEqual(f, result)

@@ -38,12 +38,14 @@ class UnrollTransformer(TrackedContextTransformer):
             return self.generic_visit(node)
 
         result = []
-        loop_var = node.target.id
-        orig_loop_vars = self.loop_vars
+        # loop_var = node.target.id
+        # orig_loop_vars = self.loop_vars
         # print("Unrolling 'for {} in {}'".format(loop_var, list(iterable)))
         for val in iterable:
-            self.ctxt.push({loop_var: val})
-            self.loop_vars = orig_loop_vars | {loop_var}
+            # self.ctxt.push({loop_var: val})
+            # self.loop_vars = orig_loop_vars | {loop_var}
+            # self.ctxt.push()
+            self.visit(ast.Assign(targets=node.target, value=val))
             for body_node in copy.deepcopy(node.body):
                 res = self.visit(body_node)
                 if isinstance(res, list):
@@ -53,7 +55,7 @@ class UnrollTransformer(TrackedContextTransformer):
                 else:
                     result.append(res)
             # result.extend([self.visit(body_node) for body_node in copy.deepcopy(node.body)])
-            self.ctxt.pop()
+            # self.ctxt.pop()
             if top_level_break:
                 first_result = result
                 result = []
@@ -62,15 +64,15 @@ class UnrollTransformer(TrackedContextTransformer):
                         break
                     result.append(n)
                 break
-        self.loop_vars = orig_loop_vars
+        # self.loop_vars = orig_loop_vars
         return result
 
-    def visit_Name(self, node):
-        if node.id in self.loop_vars:
-            if node.id in self.ctxt:
-                return self.ctxt[node.id]
-            raise NameError("'{}' not defined in context".format(node.id))
-        return node
+    # def visit_Name(self, node):
+    #     if node.id in self.loop_vars:
+    #         if node.id in self.ctxt:
+    #             return self.ctxt[node.id]
+    #         raise NameError("'{}' not defined in context".format(node.id))
+    #     return node
 
 
 # Unroll literal loops

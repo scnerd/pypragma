@@ -1,14 +1,13 @@
 import ast
 import traceback
 import warnings
-import builtins
-import inspect
 import logging
 
 from miniutils import magic_contract
 
-from .stack import DictStack
-from . import _log_call
+from pragma.core.resolve.iterable import resolve_iterable, pure_functions
+from pragma.core.stack import DictStack
+from pragma.core import _log_call, resolve_name_or_attribute
 
 log = logging.getLogger(__name__.split('.')[0])
 
@@ -54,10 +53,6 @@ _collapse_map = {
     ast.GtE: lambda a, b: a >= b,
 }
 
-_builtin_funcs = inspect.getmembers(builtins, lambda o: callable(o))
-pure_functions = {func for name, func in _builtin_funcs}
-
-
 @magic_contract
 def can_have_side_effect(node, ctxt):
     """
@@ -89,105 +84,6 @@ def can_have_side_effect(node, ctxt):
 
 @_log_call
 @magic_contract
-def constant_iterable(node, ctxt, avoid_side_effects=True):
-    """
-    If the given node is a known iterable of some sort, return the list of its elements.
-    :param node: The AST node to be checked
-    :type node: AST
-    :param ctxt: The environment stack to use when running the check
-    :type ctxt: DictStack
-    :param avoid_side_effects: Whether or not to avoid unwrapping side effect-causing AST nodes
-    :type avoid_side_effects: bool
-    :return: The iterable if possible, else None
-    :rtype: iterable|None
-    """
-
-    # TODO: Support zipping
-    # TODO: Support sets/dicts?
-    # TODO: Support for reversed, enumerate, etc.
-    # TODO: Support len, in, etc.
-    # Check for range(*constants)
-    def wrap(return_node, name, idx):
-        if not avoid_side_effects:
-            return return_node
-        if can_have_side_effect(return_node, ctxt):
-            return ast.Subscript(name, ast.Index(idx))
-        return make_ast_from_literal(return_node)
-
-    if isinstance(node, ast.Call):
-        if resolve_name_or_attribute(node.func, ctxt) == range:
-            args = [resolve_literal(arg, ctxt) for arg in node.args]
-            if all(isinstance(arg, ast.Num) for arg in args):
-                return [ast.Num(n) for n in range(*[arg.n for arg in args])]
-
-        return None
-    elif isinstance(node, (ast.List, ast.Tuple)):
-        return [resolve_literal(e, ctxt) for e in node.elts]
-        # return [_resolve_name_or_attribute(e, ctxt) for e in node.elts]
-    # Can't yet support sets and lists, since you need to compute what the unique values would be
-    # elif isinstance(node, ast.Dict):
-    #     return node.keys
-    elif isinstance(node, (ast.Name, ast.Attribute, ast.NameConstant)):
-        res = resolve_name_or_attribute(node, ctxt)
-        # print("Trying to resolve '{}' as list, got {}".format(astor.to_source(node), res))
-        if isinstance(res, ast.AST) and not isinstance(res, (ast.Name, ast.Attribute, ast.NameConstant)):
-            res = constant_iterable(res, ctxt)
-        if not isinstance(res, ast.AST):
-            try:
-                if hasattr(res, 'items'):
-                    return dict([(k, wrap(make_ast_from_literal(v), node, k)) for k, v in res.items()])
-                else:
-                    return [wrap(make_ast_from_literal(res_node), node, i) for i, res_node in enumerate(res)]
-            except TypeError:
-                pass
-    return None
-
-
-# @magic_contract
-def constant_dict(node, ctxt):
-    if isinstance(node, (ast.Name, ast.NameConstant, ast.Attribute)):
-        res = resolve_name_or_attribute(node, ctxt)
-        if hasattr(res, 'items'):
-            return dict(res.items())
-    return None
-
-
-@_log_call
-@magic_contract
-def resolve_name_or_attribute(node, ctxt):
-    """
-    If the given name of attribute is defined in the current context, return its value. Else, returns the node
-    :param node: The node to try to resolve
-    :type node: AST
-    :param ctxt: The environment stack to use when running the check
-    :type ctxt: DictStack
-    :return: The object if the name was found, else the original node
-    :rtype: *
-    """
-    if isinstance(node, ast.Name):
-        if node.id in ctxt:
-            try:
-                return ctxt[node.id]
-            except KeyError:
-                log.debug("'{}' has been assigned to, but with an unknown value".format(node.id))
-                return node
-        else:
-            return node
-    elif isinstance(node, ast.NameConstant):
-        return node.value
-    elif isinstance(node, ast.Attribute):
-        base_obj = resolve_name_or_attribute(node.value, ctxt)
-        if not isinstance(base_obj, ast.AST):
-            return getattr(base_obj, node.attr, node)
-        else:
-            log.debug("Could not resolve '{}.{}'".format(node.value, node.attr))
-            return node
-    else:
-        return node
-
-
-@_log_call
-@magic_contract
 def make_ast_from_literal(lit):
     """
     Converts literals into their AST equivalent
@@ -202,6 +98,8 @@ def make_ast_from_literal(lit):
         res = [make_ast_from_literal(e) for e in lit]
         tp = ast.List if isinstance(lit, list) else ast.Tuple
         return tp(elts=res)
+    elif isinstance(lit, dict):
+        return ast.Dict(keys=list(lit.keys()), values=list(lit.values()))
     elif isinstance(lit, num_types):
         if isinstance(lit, float_types):
             lit2 = float(lit)
@@ -238,7 +136,7 @@ def _resolve_literal(node, ctxt):
     """
     Collapses literal expressions. Returns literals if they're available, AST nodes otherwise
     :param node: The AST node to be checked
-    :type node: AST
+    :type node: *
     :param ctxt: The environment stack to use when running the check
     :type ctxt: DictStack
     :return: The given AST node with literal operations collapsed as much as possible
@@ -311,7 +209,7 @@ def resolve_literal_list(node, ctxt):
 
 def resolve_literal_subscript(node, ctxt):
     # print("Attempting to subscript {}".format(astor.to_source(node)))
-    lst = constant_iterable(node.value, ctxt)
+    lst = resolve_iterable(node.value, ctxt)
     # print("Can I subscript {}?".format(lst))
     if lst is None:
         return node
@@ -377,6 +275,34 @@ def resolve_literal_compare(node, ctxt):
         return node
 
 
+def _resolve_argument(arg, ctxt):
+    starred = False
+    if isinstance(arg, ast.Starred):
+        starred = True
+        arg = arg.value
+    arg = _resolve_literal(arg, ctxt)
+    if isinstance(arg, ast.AST):  # We don't know the value of this argument
+        raise TypeError()
+
+    return starred, arg
+
+
+def _resolve_args(args, ctxt):
+    return [
+        a
+        for a_in in args
+        for starred, a_out in _resolve_argument(a_in, ctxt)
+        for a in (a_out if starred else [a_out])
+    ]
+
+
+def _resolve_keywords(keywords, ctxt):
+    kwargs = {kw.arg: _resolve_argument(kw.value, ctxt)[1] for kw in keywords}
+    if None in kwargs:
+        kwargs.update(kwargs[None])
+        del kwargs[None]
+
+
 def resolve_literal_call(node, ctxt):
     func = _resolve_literal(node.func, ctxt)
     if isinstance(func, ast.AST):  # We don't even know what's being called
@@ -384,33 +310,13 @@ def resolve_literal_call(node, ctxt):
     if func not in pure_functions:
         log.info("Function {} isn't known to be a pure function, can't resolve".format(func))
         return node
-    args = []
-    for a in node.args:
-        starred = False
-        if isinstance(a, ast.Starred):
-            starred = True
-            a = a.value
-        a = _resolve_literal(a, ctxt)
-        if isinstance(a, ast.AST):  # We don't know the value of this argument
-            return node
-        if starred:
-            try:
-                args += list(a)
-            except TypeError:
-                warnings.warn("Starred a non-iterable argument")
-                return node
-        else:
-            args.append(a)
-    kwargs = {}
-    for kw in node.keywords:
-        key = kw.arg
-        value = _resolve_literal(kw.value, ctxt)
-        if isinstance(value, ast.AST):
-            return node
-        if key:
-            kwargs[key] = value
-        else:
-            kwargs.update(value)
+
+    try:
+        args = _resolve_args(node.args, ctxt)
+        kwargs = _resolve_keywords(node.keywords, ctxt)
+    except TypeError:
+        return node
+
     # If we've made it this far, we know the function and its arguments. Run it and return the result
     return func(*args, **kwargs)
 
