@@ -106,18 +106,18 @@ class _InlineBodyTransformer(TrackedContextTransformer):
     def visit_Yield(self, node):
         self.had_yield = True
         if node.value:
-            return ast.Call(func=ast.Attribute(value=make_name(self.func_name, 'yield', self.n, ctx=ast.Load),
+            return ast.Call(func=ast.Attribute(value=make_name(self.func_name, 'yield', self.n),
                                                attr='append',
-                                               ctx=ast.Load),
+                                               ctx=ast.Load()),
                             args=[self.visit(node.value)],
                             keywords=[])
         return node
 
     def visit_YieldFrom(self, node):
         self.had_yield = True
-        return ast.Call(func=ast.Attribute(value=make_name(self.func_name, 'yield', self.n, ctx=ast.Load),
+        return ast.Call(func=ast.Attribute(value=make_name(self.func_name, 'yield', self.n),
                                            attr='extend',
-                                           ctx=ast.Load),
+                                           ctx=ast.Load()),
                         args=[self.visit(node.value)],
                         keywords=[])
 
@@ -194,6 +194,7 @@ class InlineTransformer(TrackedContextTransformer):
 
             # Create args dictionary
             final_args = []
+            final_kwargs = []
 
             for arg_name, arg_value in bound_args.arguments.items():
                 if isinstance(arg_value, tuple):
@@ -204,19 +205,21 @@ class InlineTransformer(TrackedContextTransformer):
                     values = list(values)
                     arg_value = ast.Dict(keys=keys, values=values)
                 # fun_name['param_name'] = param_value
-                final_args.append((arg_name, arg_value))
+                final_kwargs.append((arg_name, arg_value))
 
             if kw_dict:
-                final_args.append((None, kw_dict))
+                final_kwargs.append((None, kw_dict))
 
             if func_for_inlining.had_yield:
-                final_args.append(('yield', ast.List(elts=[])))
+                final_args.append(ast.List(elts=[ast.Tuple(elts=[ast.Str('yield'), ast.List(elts=[], ctx=ast.Load())],
+                                                           ctx=ast.Load())],
+                                           ctx=ast.Load()))
 
             # fun_name = {}
             dict_call = ast.Call(
                 func=ast.Name(id='dict', ctx=ast.Load()),
-                args=[],
-                keywords=[ast.keyword(arg=name, value=val) for name, val in final_args]
+                args=final_args,
+                keywords=[ast.keyword(arg=name, value=val) for name, val in final_kwargs]
             )
             new_code.append(ast.Assign(
                 targets=[ast.Name(id=args_dict_name, ctx=ast.Store())],
