@@ -268,3 +268,45 @@ Inline
        _sqr_return_1 = _sqr_0.get('return', None)
        del _sqr_0
        return _sqr_return_0 + _sqr_return_1  # Substitute the returned values for the function calls
+
+Stacking Transformations
+++++++++++++++++++++++++
+
+The above examples demonstrate how to perform `pragma` transformations to a function. It should be especially noted, however, that since each transformer returns a proper Python function, they can stack seamlessly:
+
+.. code-block:: python
+
+    In [1]: def make_dynamic_caller(*fns):
+       ...:     @pragma.deindex(fns, 'fns')
+       ...:     @pragma.unroll(num_fns=len(fns))
+       ...:     def dynamic_call(i, x):
+       ...:         for j in range(num_fns):
+       ...:             if i == j:
+       ...:                 return fns[j](x)
+       ...:
+       ...:     return dynamic_call
+
+    In [2]: f = make_dynamic_caller(math.sin, math.cos, math.tan)
+
+    In [3]: f??
+    Signature: f(i, x)
+    Source:
+    def dynamic_call(i, x):
+        if i == 0:
+            return fns_0(x)
+        if i == 1:
+            return fns_1(x)
+        if i == 2:
+            return fns_2(x)
+    File:      /tmp/tmpf9tjaffi
+    Type:      function
+
+    In [4]: g = pragma.collapse_literals(i=1)(f)
+
+    In [5]: g??
+    Signature: g(i, x)
+    Source:
+    def dynamic_call(i, x):
+        return fns_1(x)
+    File:      /tmp/tmpbze5i__2
+    Type:      function
