@@ -13,7 +13,9 @@ Overview
 
 PyPragma is a set of tools for performing in-place code modification, inspired by compiler directives in C. These modifications are intended to make no functional changes to the execution of code. In C, this is used to increase code performance or make certain tradeoffs (often between the size of the binary and its execution speed). In Python, these changes are most applicable when leveraging code generation libraries (such as Numba or Tangent) where the use of certain Python features is disallowed. By transforming the code in-place, disallowed features can be converted to allowed syntax at runtime without sacrificing the dynamic nature of python code.
 
-For example, with Numba, it is not possible to compile a function which dynamically references and calls other functions (e.g., you may not select a function from a list and then execute it, you may only call functions by their explicit name)::
+For example, with Numba, it is not possible to compile a function which dynamically references and calls other functions (e.g., you may not select a function from a list and then execute it, you may only call functions by their explicit name):
+
+.. code-block:: python
 
    fns = [sin, cos, tan]
 
@@ -21,7 +23,9 @@ For example, with Numba, it is not possible to compile a function which dynamica
    def call(i, x):
       return fns[i](x)  # Not allowed, since it's unknown which function is getting called
 
-If the dynamism is static by the time the function is defined, such as in this case, then these dynamic language features can be flattened to simpler features that such code generation libraries are more likely to support (e.g., the function can be extracted into a closure variable, then called directly by that name)::
+If the dynamism is static by the time the function is defined, such as in this case, then these dynamic language features can be flattened to simpler features that such code generation libraries are more likely to support (e.g., the function can be extracted into a closure variable, then called directly by that name):
+
+.. code-block:: python
 
    fns = [sin, cos, tan]
 
@@ -38,7 +42,9 @@ If the dynamism is static by the time the function is defined, such as in this c
       if i == 2:
          return fns_2(x)
 
-Such a modification can only be done by the programmer if the dynamic features are known *before* runtime, that is, if ``fns`` is dynamically computed, then this modification cannot be performed by the programmer, even though this example demonstrates the the original function is not inherently dynamic, it just appears so. PyPragma enables this transformation at runtime, which for this example function would look like::
+Such a modification can only be done by the programmer if the dynamic features are known *before* runtime, that is, if ``fns`` is dynamically computed, then this modification cannot be performed by the programmer, even though this example demonstrates the the original function is not inherently dynamic, it just appears so. PyPragma enables this transformation at runtime, which for this example function would look like:
+
+.. code-block:: python
 
    fns = [sin, cos, tan]
 
@@ -53,14 +59,24 @@ Such a modification can only be done by the programmer if the dynamic features a
 This example is converted, in place and at runtime, to exactly the unrolled code above.
 
 
+Documentation
+=============
+
+Complete documentation can be found over at `RTFD <http://pypragma.readthedocs.io/en/latest/>`_.
+
+
 Installation
 ============
 
-As usual, you have the choice of installing from PyPi::
+As usual, you have the choice of installing from PyPi:
+
+.. code-block:: bash
 
    pip install pragma
 
-or directly from Github::
+or directly from Github:
+
+.. code-block:: bash
 
    pip install git+https://github.com/scnerd/pypragma
 
@@ -68,11 +84,15 @@ or directly from Github::
 Usage
 ===========
 
-PyPragma has a small number of stackable decorators, each of which transforms a function in-place without changing its execution behavior. These can be imported as such::
+PyPragma has a small number of stackable decorators, each of which transforms a function in-place without changing its execution behavior. These can be imported as such:
+
+.. code-block:: python
 
    import pragma
 
-Each decorator can be applied to a function using either the standard decorator syntax, or as a function call::
+Each decorator can be applied to a function using either the standard decorator syntax, or as a function call:
+
+.. code-block:: python
 
    @pragma.unroll
    def pows(i):
@@ -98,7 +118,9 @@ Each decorator can be applied to a function using either the standard decorator 
 
    pows(5)
 
-Each decorator can be used bare, as in the example above, or can be given initial parameters before decorating the given function. Any non-specified keyword arguments are added to the resulting function's closure as variables. In addition, the decorated function's closure is preserved, so external variables are also included. As a simple example, the above code could also be written as::
+Each decorator can be used bare, as in the example above, or can be given initial parameters before decorating the given function. Any non-specified keyword arguments are added to the resulting function's closure as variables. In addition, the decorated function's closure is preserved, so external variables are also included. As a simple example, the above code could also be written as:
+
+.. code-block:: python
 
    @pragma.unroll(num_pows=3)
    def pows(i):
@@ -115,7 +137,9 @@ Each decorator can be used bare, as in the example above, or can be given initia
 
 Certain keywords are reserved, of course, as will be defined in the documentation for each decorator. Additionally, the resulting function is an actual, proper Python function, and hence must adhere to Python syntax rules. As a result, some modifications depend upon using certain variable names, which may collide with other variable names used by your function. Every effort has been made to make this unlikely by using mangled variable names, but the possibility for collision remains.
 
-A side effect of the proper Python syntax is that functions can have their source code retrieved by any normal Pythonic reflection::
+A side effect of the proper Python syntax is that functions can have their source code retrieved by any normal Pythonic reflection:
+
+.. code-block:: python
 
    In [1]: @pragma.unroll(num_pows=3)
       ...: def pows(i):
@@ -141,7 +165,7 @@ Quick Examples
 Collapse Literals
 +++++++++++++++++
 
-:doc:`Complete documentation <collapse_literals>`::
+.. code-block:: python
 
    In [1]: @pragma.collapse_literals(x=5)
       ...: def f(y):
@@ -159,7 +183,7 @@ Collapse Literals
 De-index Arrays
 +++++++++++++++
 
-:doc:`Complete documentation <deindex>`::
+.. code-block:: python
 
    In [1]: fns = [math.sin, math.cos, math.tan]
 
@@ -184,7 +208,9 @@ De-index Arrays
        if i == 2:
            return fns_2(x)
 
-Note that, while it's not evident from the above printed source code, each variable ``fns_X`` is assigned to the value of ``fns[X]`` at the time when the decoration occurs::
+Note that, while it's not evident from the above printed source code, each variable ``fns_X`` is assigned to the value of ``fns[X]`` at the time when the decoration occurs:
+
+.. code-block:: python
 
    In [4]: call(0, math.pi)
    Out[4]: 1.2246467991473532e-16  # AKA, sin(pi) = 0
@@ -195,7 +221,7 @@ Note that, while it's not evident from the above printed source code, each varia
 Unroll
 ++++++
 
-:doc:`Complete documentation <unroll>`::
+.. code-block:: python
 
    In [1]: p_or_m = [1, -1]
 
@@ -220,7 +246,7 @@ Unroll
 Inline
 ++++++
 
-:doc:`Complete documentation <inline>`::
+.. code-block:: python
 
    In [1]: def sqr(x):
       ...:     return x ** 2
@@ -248,3 +274,45 @@ Inline
        _sqr_return_1 = _sqr_0.get('return', None)
        del _sqr_0
        return _sqr_return_0 + _sqr_return_1  # Substitute the returned values for the function calls
+
+Stacking Transformations
+++++++++++++++++++++++++
+
+The above examples demonstrate how to perform `pragma` transformations to a function. It should be especially noted, however, that since each transformer returns a proper Python function, they can stack seamlessly:
+
+.. code-block:: python
+
+    In [1]: def make_dynamic_caller(*fns):
+       ...:     @pragma.deindex(fns, 'fns')
+       ...:     @pragma.unroll(num_fns=len(fns))
+       ...:     def dynamic_call(i, x):
+       ...:         for j in range(num_fns):
+       ...:             if i == j:
+       ...:                 return fns[j](x)
+       ...:
+       ...:     return dynamic_call
+
+    In [2]: f = make_dynamic_caller(math.sin, math.cos, math.tan)
+
+    In [3]: f??
+    Signature: f(i, x)
+    Source:
+    def dynamic_call(i, x):
+        if i == 0:
+            return fns_0(x)
+        if i == 1:
+            return fns_1(x)
+        if i == 2:
+            return fns_2(x)
+    File:      /tmp/tmpf9tjaffi
+    Type:      function
+
+    In [4]: g = pragma.collapse_literals(i=1)(f)
+
+    In [5]: g??
+    Signature: g(i, x)
+    Source:
+    def dynamic_call(i, x):
+        return fns_1(x)
+    File:      /tmp/tmpbze5i__2
+    Type:      function

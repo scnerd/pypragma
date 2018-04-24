@@ -24,7 +24,7 @@ def function_ast(f):
     """
     try:
         f_file = sys.modules[f.__module__].__file__
-    except (KeyError, AttributeError):
+    except (KeyError, AttributeError):  # pragma: nocover
         f_file = ''
 
     root = ast.parse(textwrap.dedent(inspect.getsource(f)), f_file)
@@ -63,7 +63,7 @@ class TrackedContextTransformer(ast.NodeTransformer):
     def visit_many(self, nodes):
         for n in nodes:
             n = self.visit(n)
-            if n is None:
+            if n is None:  # pragma: nocover
                 continue
             elif isinstance(n, (list, tuple)):
                 yield from n
