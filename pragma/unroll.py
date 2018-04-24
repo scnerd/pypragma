@@ -1,3 +1,5 @@
+import warnings
+
 from .core import *
 
 
@@ -20,9 +22,22 @@ def has_break(node):
 class UnrollTransformer(TrackedContextTransformer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.loop_vars = set()
+        self.loop_vars = []
+
+    def _names(self, node):
+        if isinstance(node, ast.Name):
+            yield node.id
+        elif isinstance(node, ast.Tuple):
+            for elt in node.elts:
+                yield from self._names(elt)
+        else:
+            warnings.warn("Not sure how to handle {} in a for loop target list yet".format(astor.to_source(node).strip()))
 
     def visit_For(self, node):
+        iterable = self.resolve_iterable(node.iter)
+        if iterable is None:
+            return self.generic_visit(node)
+
         top_level_break = False
         for n in node.body:
             if isinstance(n, ast.Break):
@@ -33,10 +48,6 @@ class UnrollTransformer(TrackedContextTransformer):
                 # TODO: If the conditional is resolvable at unroll time, then do so
                 return self.generic_visit(node)
 
-        iterable = constant_iterable(node.iter, self.ctxt)
-        if iterable is None:
-            return self.generic_visit(node)
-
         result = []
         # loop_var = node.target.id
         # orig_loop_vars = self.loop_vars
@@ -45,7 +56,8 @@ class UnrollTransformer(TrackedContextTransformer):
             # self.ctxt.push({loop_var: val})
             # self.loop_vars = orig_loop_vars | {loop_var}
             # self.ctxt.push()
-            self.visit(ast.Assign(targets=node.target, value=val))
+            # self.visit(ast.Assign(targets=(node.target,), value=make_ast_from_literal(val)))
+            self.loop_vars.append(set(self.assign(node.target, make_ast_from_literal(val))))
             for body_node in copy.deepcopy(node.body):
                 res = self.visit(body_node)
                 if isinstance(res, list):
@@ -67,12 +79,12 @@ class UnrollTransformer(TrackedContextTransformer):
         # self.loop_vars = orig_loop_vars
         return result
 
-    # def visit_Name(self, node):
-    #     if node.id in self.loop_vars:
-    #         if node.id in self.ctxt:
-    #             return self.ctxt[node.id]
-    #         raise NameError("'{}' not defined in context".format(node.id))
-    #     return node
+    def visit_Name(self, node):
+        if isinstance(node.ctx, ast.Load) and self.loop_vars and node.id in set.union(*self.loop_vars):
+            if node.id in self.ctxt:
+                return self.ctxt[node.id]
+            raise NameError("'{}' not defined in context".format(node.id))
+        return node
 
 
 # Unroll literal loops

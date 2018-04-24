@@ -1,57 +1,15 @@
 import ast
 import traceback
 import warnings
-import logging
 
 from miniutils import magic_contract
 
-from pragma.core.resolve.iterable import resolve_iterable, pure_functions
+from pragma.core.resolve import CollapsableNode
 from pragma.core.stack import DictStack
-from pragma.core import _log_call, resolve_name_or_attribute
+from pragma.core import _log_call
+import logging
+log = logging.getLogger(__name__)
 
-log = logging.getLogger(__name__.split('.')[0])
-
-try:
-    import numpy
-
-    num_types = (int, float, numpy.number)
-    float_types = (float, numpy.floating)
-except ImportError:  # pragma: nocover
-    numpy = None
-    num_types = (int, float)
-    float_types = (float,)
-
-_collapse_map = {
-    ast.Add: lambda a, b: a + b,
-    ast.Sub: lambda a, b: a - b,
-    ast.Mult: lambda a, b: a * b,
-    ast.Div: lambda a, b: a / b,
-    ast.FloorDiv: lambda a, b: a // b,
-
-    ast.Mod: lambda a, b: a % b,
-    ast.Pow: lambda a, b: a ** b,
-    ast.LShift: lambda a, b: a << b,
-    ast.RShift: lambda a, b: a >> b,
-    ast.MatMult: lambda a, b: a @ b,
-
-    ast.BitAnd: lambda a, b: a & b,
-    ast.BitOr: lambda a, b: a | b,
-    ast.BitXor: lambda a, b: a ^ b,
-    ast.And: lambda a, b: a and b,
-    ast.Or: lambda a, b: a or b,
-    ast.Invert: lambda a: ~a,
-    ast.Not: lambda a: not a,
-
-    ast.UAdd: lambda a: a,
-    ast.USub: lambda a: -a,
-
-    ast.Eq: lambda a, b: a == b,
-    ast.NotEq: lambda a, b: a != b,
-    ast.Lt: lambda a, b: a < b,
-    ast.LtE: lambda a, b: a <= b,
-    ast.Gt: lambda a, b: a > b,
-    ast.GtE: lambda a, b: a >= b,
-}
 
 @magic_contract
 def can_have_side_effect(node, ctxt):
@@ -209,25 +167,13 @@ def resolve_literal_list(node, ctxt):
 
 def resolve_literal_subscript(node, ctxt):
     # print("Attempting to subscript {}".format(astor.to_source(node)))
-    lst = resolve_iterable(node.value, ctxt)
-    # print("Can I subscript {}?".format(lst))
-    if lst is None:
-        return node
-    slc = _resolve_literal(node.slice, ctxt)
-    # print("Getting subscript at {}".format(slc))
-    if isinstance(slc, ast.AST):
-        return node
-    # print("Value at {}[{}] = {}".format(lst, slc, lst[slc]))
-    val = lst[slc]
-    if isinstance(val, ast.AST):
-        new_val = _resolve_literal(val, ctxt)
-        if is_wrappable(new_val):
-            # print("{} can be replaced by more specific literal {}".format(val, new_val))
-            val = new_val
-    #     else:
-    #         print("{} is an AST node, but can't safely be made more specific".format(val))
-    # print("Final value at {}[{}] = {}".format(lst, slc, val))
-    return val
+    indexable = resolve_indexable(node, ctxt)
+    if indexable is not None:
+        slice = _resolve_literal(node, ctxt)
+        if not isinstance(slice, ast.AST):
+            return indexable[slice]
+
+    return node
 
 
 def resolve_literal_unop(node, ctxt):
@@ -280,9 +226,8 @@ def _resolve_argument(arg, ctxt):
     if isinstance(arg, ast.Starred):
         starred = True
         arg = arg.value
-    arg = _resolve_literal(arg, ctxt)
-    if isinstance(arg, ast.AST):  # We don't know the value of this argument
-        raise TypeError()
+
+    arg = CollapsableNode(arg, ctxt)
 
     return starred, arg
 
@@ -301,6 +246,7 @@ def _resolve_keywords(keywords, ctxt):
     if None in kwargs:
         kwargs.update(kwargs[None])
         del kwargs[None]
+    return kwargs
 
 
 def resolve_literal_call(node, ctxt):
@@ -311,14 +257,18 @@ def resolve_literal_call(node, ctxt):
         log.info("Function {} isn't known to be a pure function, can't resolve".format(func))
         return node
 
+    args = None
+    kwargs = None
+
     try:
         args = _resolve_args(node.args, ctxt)
         kwargs = _resolve_keywords(node.keywords, ctxt)
-    except TypeError:
+        # If we've made it this far, we know the function and its arguments. Run it and return the result
+        return func(*args, **kwargs)
+    except Exception as ex:
+        log.debug("Failed to run '{}(*{}, **{})'".format(func, args, kwargs), exc_info=ex)
         return node
 
-    # If we've made it this far, we know the function and its arguments. Run it and return the result
-    return func(*args, **kwargs)
 
 
 @magic_contract
@@ -341,3 +291,7 @@ def resolve_literal(node, ctxt, give_raw_result=False):
     if not isinstance(result, ast.AST):
         return node
     return result
+
+
+from pragma.core.resolve import _collapse_map, num_types, float_types, resolve_name_or_attribute, pure_functions
+from pragma.core.resolve.indexable import resolve_indexable

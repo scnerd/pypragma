@@ -11,6 +11,14 @@ class TestUnroll(PragmaTest):
             for i in range(3):
                 yield i
 
+        result = '''
+        def f():
+            yield 0
+            yield 1
+            yield 2
+        '''
+
+        self.assertSourceEqual(f, result)
         self.assertEqual(list(f()), [0, 1, 2])
 
     def test_unroll_various(self):
@@ -86,6 +94,14 @@ class TestUnroll(PragmaTest):
             for i in [1, 2, 4]:
                 yield i
 
+        result = dedent('''
+        def f():
+            yield 1
+            yield 2
+            yield 4
+        ''')
+
+        self.assertSourceEqual(f, result)
         self.assertEqual(list(f()), [1, 2, 4])
 
     def test_unroll_const_tuple(self):
@@ -95,34 +111,6 @@ class TestUnroll(PragmaTest):
                 yield i
 
         self.assertEqual(list(f()), [1, 2, 4])
-
-    def test_unroll_range_source(self):
-        @pragma.unroll(return_source=True)
-        def f():
-            for i in range(3):
-                yield i
-
-        result = dedent('''
-        def f():
-            yield 0
-            yield 1
-            yield 2
-        ''')
-        self.assertEqual(f.strip(), result.strip())
-
-    def test_unroll_list_source(self):
-        @pragma.unroll(return_source=True)
-        def f():
-            for i in [1, 2, 4]:
-                yield i
-
-        result = dedent('''
-        def f():
-            yield 1
-            yield 2
-            yield 4
-        ''')
-        self.assertEqual(f.strip(), result.strip())
 
     def test_unroll_dyn_list_source(self):
         @pragma.unroll(return_source=True)
@@ -266,9 +254,9 @@ class TestUnroll(PragmaTest):
         def f():
             x = 3
             (y, x), z = (1, 2), 3
-            print(2)
-            print(2)
-            print(2)
+            print(x)
+            print(x)
+            print(x)
         ''')
         self.assertEqual(f.strip(), result.strip())
 

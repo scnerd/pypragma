@@ -27,7 +27,7 @@ class CollapseTransformer(TrackedContextTransformer):
         return self.resolve_literal(self.generic_visit(node))
 
     def visit_If(self, node):
-        cond = resolve_literal(node.test, self.ctxt, True)
+        cond = self.resolve_literal(node.test, raw=True)
         # print("Attempting to collapse IF conditioned on {}".format(cond))
         if not isinstance(cond, ast.AST):
             log.debug("Collapsing if condition ({} resolved to {})".format(node.test, cond))

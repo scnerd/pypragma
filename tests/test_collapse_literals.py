@@ -69,17 +69,18 @@ class TestCollapseLiterals(PragmaTest):
         self.assertEqual(f.strip(), result.strip())
 
     def test_constant_index(self):
-        @pragma.collapse_literals(return_source=True)
+        @pragma.collapse_literals
         def f():
-            x = [1,2,3]
+            x = [1, 2, 3]
             return x[0]
 
-        result = dedent('''
+        result = '''
         def f():
             x = [1, 2, 3]
             return 1
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(), 1)
 
     def test_with_unroll(self):
         @pragma.collapse_literals(return_source=True)
@@ -257,3 +258,19 @@ class TestCollapseLiterals(PragmaTest):
     #         x[1] = 4
     #         return 4
     #     ''')
+
+    def test_tuple_assign(self):
+        @pragma.collapse_literals
+        def f():
+            x = 3
+            ((y, x), z) = ((1, 2), 3)
+            return x
+
+        result = dedent('''
+        def f():
+            x = 3
+            (y, x), z = (1, 2), 3
+            return 2
+        ''')
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(), 2)
