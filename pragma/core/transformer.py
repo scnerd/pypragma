@@ -50,7 +50,8 @@ class DebugTransformerMixin:  # pragma: nocover
                 log.debug("Converted >>> {} <<< to [[[ {} ]]]".format(orig_node_code, ", ".join(
                     astor.to_source(n).strip() for n in new_node)))
         except Exception as ex:
-            raise AssertionError("Failed on {} >>> {}".format(orig_node_code, astor.dump_tree(new_node))) from ex
+            log.error("Failed on {} >>> {}".format(orig_node_code, astor.dump_tree(new_node)), exc_info=ex)
+            raise ex
 
         return new_node
 
@@ -91,10 +92,17 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
         return lst
 
     def resolve_literal(self, node, raw=False):
-        log.debug("Attempting to resolve {}".format(node))
+        log.debug("Attempting to resolve {} as literal".format(node))
         resolution = resolve_literal(node, self.ctxt, give_raw_result=raw)
         log.debug("Resolved {} to {}".format(node, resolution) if resolution is not node
-                  else "Failed to resolve {}".format(node))
+                  else "Failed to resolve {} as literal".format(node))
+        return resolution
+
+    def resolve_name_or_attribute(self, node):
+        log.debug("Attempting to resolve name/attr {}".format(node))
+        resolution = resolve_name_or_attribute(node, self.ctxt)
+        log.debug("Resolved {} to {}".format(node, resolution) if resolution is not node
+                  else "Failed to resolve name/attr {}".format(node))
         return resolution
 
     def resolve_iterable(self, node):
@@ -109,13 +117,6 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
         resolution = resolve_indexable(node, self.ctxt)
         log.debug("Resolved {} to {}".format(node, resolution) if resolution is not None
                   else "Failed to resolve {} as indexable".format(node))
-        return resolution
-
-    def resolve_name_or_attribute(self, node):
-        log.debug("Attempting to resolve name/attr {}".format(node))
-        resolution = resolve_name_or_attribute(node, self.ctxt)
-        log.debug("Resolved {} to {}".format(node, resolution) if resolution is not None
-                  else "Failed to resolve {}".format(node))
         return resolution
 
     def generic_visit_less(self, node, *without):

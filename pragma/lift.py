@@ -4,8 +4,10 @@ import tempfile
 import sys
 from miniutils import magic_contract, optional_argument_decorator
 from types import ModuleType
+import logging
+log = logging.getLogger(__name__)
 
-from .core import TrackedContextTransformer, make_function_transformer, resolve_literal, log
+from .core import TrackedContextTransformer, make_function_transformer, resolve_literal
 from .core.transformer import function_ast
 from .core.resolve import make_ast_from_literal
 

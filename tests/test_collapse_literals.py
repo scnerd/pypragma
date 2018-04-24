@@ -234,15 +234,17 @@ class TestCollapseLiterals(PragmaTest):
     def test_funcs2(self):
         my_list = [1, 2, 3]
 
-        @pragma.collapse_literals(return_source=True)
+        @pragma.collapse_literals
         def f(x):
             return x + sum([sum(my_list), min(my_list), max(my_list)])
 
-        result = dedent('''
+        result = '''
         def f(x):
             return x + 10
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(5), 15)
 
     # # Implement the functionality to get this test to pass
     # def test_assign_to_iterable(self):
@@ -274,3 +276,45 @@ class TestCollapseLiterals(PragmaTest):
         ''')
         self.assertSourceEqual(f, result)
         self.assertEqual(f(), 2)
+
+    def test_simple_functions(self):
+        a = [1, 2, 3, 4]
+
+        @pragma.collapse_literals
+        def f():
+            print(len(a))
+            print(sum(a))
+            print(a)
+
+        result = '''
+        def f():
+            print(4)
+            print(10)
+            print(a)
+        '''
+
+        self.assertSourceEqual(f, result)
+
+    def test_reduction(self):
+        a = [1, 2, 3]
+
+        @pragma.collapse_literals
+        def f():
+            b = a
+            c = b
+            d = c
+            e = d
+            print(e)
+            print(e[0])
+
+        result = '''
+        def f():
+            b = a
+            c = b
+            d = c
+            e = d
+            print(e)
+            print(1)
+        '''
+
+        self.assertSourceEqual(f, result)

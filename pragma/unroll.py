@@ -1,6 +1,8 @@
 import warnings
 
 from .core import *
+import logging
+log = logging.getLogger(__name__)
 
 
 def has_break(node):

@@ -1,12 +1,17 @@
 import ast
 
-from .core import TrackedContextTransformer, make_function_transformer, resolve_literal, log
+from .core import TrackedContextTransformer, make_function_transformer, primitive_types
+import logging
+log = logging.getLogger(__name__)
 
 
 # noinspection PyPep8Naming
 class CollapseTransformer(TrackedContextTransformer):
     def visit_Name(self, node):
-        return self.resolve_literal(node)
+        res = self.resolve_literal(node)
+        if isinstance(res, (ast.Num, ast.Str, ast.JoinedStr, ast.Bytes, ast.NameConstant, ast.Constant)):
+            return res
+        return node
 
     def visit_BinOp(self, node):
         return self.resolve_literal(self.generic_visit(node))
@@ -21,7 +26,7 @@ class CollapseTransformer(TrackedContextTransformer):
         return self.resolve_literal(self.generic_visit(node))
 
     def visit_Subscript(self, node):
-        return self.resolve_literal(node)
+        return self.resolve_literal(self.generic_visit_less(node, 'value'))
 
     def visit_Call(self, node):
         return self.resolve_literal(self.generic_visit(node))

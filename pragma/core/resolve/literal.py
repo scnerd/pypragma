@@ -7,6 +7,7 @@ from miniutils import magic_contract
 from pragma.core.resolve import CollapsableNode
 from pragma.core.stack import DictStack
 from pragma.core import _log_call
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -55,9 +56,10 @@ def make_ast_from_literal(lit):
     elif isinstance(lit, (list, tuple)):
         res = [make_ast_from_literal(e) for e in lit]
         tp = ast.List if isinstance(lit, list) else ast.Tuple
-        return tp(elts=res)
+        return tp(elts=res, ctx=ast.Load())
     elif isinstance(lit, dict):
-        return ast.Dict(keys=list(lit.keys()), values=list(lit.values()))
+        return ast.Dict(keys=[make_ast_from_literal(k) for k in lit.keys()],
+                        values=[make_ast_from_literal(v) for v in lit.values()])
     elif isinstance(lit, num_types):
         if isinstance(lit, float_types):
             lit2 = float(lit)
@@ -131,6 +133,7 @@ def _resolve_literal(node, ctxt):
         return node
 
 
+@_log_call
 def resolve_literal_name(node, ctxt):
     res = resolve_name_or_attribute(node, ctxt)
     if isinstance(res, ast.AST) and not isinstance(res, (ast.Name, ast.Attribute, ast.NameConstant)):
@@ -143,6 +146,7 @@ def resolve_literal_name(node, ctxt):
     return res
 
 
+@_log_call
 def resolve_literal_list(node, ctxt):
     """Returns, if possible, the entirely literal list or tuple.
 
@@ -165,17 +169,27 @@ def resolve_literal_list(node, ctxt):
         raise TypeError("Attempted to resolve {} as if it were a literal list, tuple, or set".format(node))
 
 
+@_log_call
 def resolve_literal_subscript(node, ctxt):
-    # print("Attempting to subscript {}".format(astor.to_source(node)))
-    indexable = resolve_indexable(node, ctxt)
+    indexable = resolve_indexable(node.value, ctxt)
     if indexable is not None:
-        slice = _resolve_literal(node, ctxt)
+        slice = _resolve_literal(node.slice, ctxt)
         if not isinstance(slice, ast.AST):
-            return indexable[slice]
+            try:
+                indexable = {_resolve_literal(k, ctxt): v for k, v in indexable.items()}
+                return _resolve_literal(indexable[slice], ctxt)
+            except (KeyError, IndexError):
+                log.debug("Cannot index {}[{}]".format(indexable, slice))
+                return node
+        else:
+            log.debug("Cannot resolve index to literal '{}'".format(node.slice))
+    else:
+        log.debug("Cannot resolve '{}' to indexable object".format(node.value))
 
     return node
 
 
+@_log_call
 def resolve_literal_unop(node, ctxt):
     operand = _resolve_literal(node.operand, ctxt)
     if isinstance(operand, ast.AST):
@@ -190,6 +204,7 @@ def resolve_literal_unop(node, ctxt):
             return node
 
 
+@_log_call
 def resolve_literal_binop(node, ctxt):
     left = _resolve_literal(node.left, ctxt)
     right = _resolve_literal(node.right, ctxt)
@@ -212,6 +227,7 @@ def resolve_literal_binop(node, ctxt):
         return ast.BinOp(left=left, right=right, op=node.op)
 
 
+@_log_call
 def resolve_literal_compare(node, ctxt):
     operands = [_resolve_literal(o, ctxt) for o in [node.left] + node.comparators]
     if all(not isinstance(opr, ast.AST) for opr in operands):
@@ -221,34 +237,26 @@ def resolve_literal_compare(node, ctxt):
         return node
 
 
-def _resolve_argument(arg, ctxt):
-    starred = False
-    if isinstance(arg, ast.Starred):
-        starred = True
-        arg = arg.value
-
-    arg = CollapsableNode(arg, ctxt)
-
-    return starred, arg
-
-
+@_log_call
 def _resolve_args(args, ctxt):
     return [
-        a
+        CollapsableNode(arg, ctxt)
         for a_in in args
-        for starred, a_out in _resolve_argument(a_in, ctxt)
-        for a in (a_out if starred else [a_out])
+        for arg in (a_in.value if isinstance(a_in, ast.Starred) else [a_in])
     ]
 
 
+@_log_call
 def _resolve_keywords(keywords, ctxt):
-    kwargs = {kw.arg: _resolve_argument(kw.value, ctxt)[1] for kw in keywords}
+    kwargs = {kw.arg: CollapsableNode(kw.value, ctxt) for kw in keywords}
     if None in kwargs:
         kwargs.update(kwargs[None])
         del kwargs[None]
     return kwargs
 
 
+@_log_call
+@magic_contract(node='Call', ctxt='DictStack')
 def resolve_literal_call(node, ctxt):
     func = _resolve_literal(node.func, ctxt)
     if isinstance(func, ast.AST):  # We don't even know what's being called

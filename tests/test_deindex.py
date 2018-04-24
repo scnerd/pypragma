@@ -8,28 +8,31 @@ from .test_pragma import PragmaTest
 class TestDeindex(PragmaTest):
     def test_with_literals(self):
         v = [1, 2, 3]
-        @pragma.collapse_literals(return_source=True)
+        @pragma.collapse_literals
         @pragma.deindex(v, 'v')
         def f():
             return v[0] + v[1] + v[2]
 
-        result = dedent('''
+        result = '''
         def f():
             return 6
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(), sum(v))
 
     def test_with_objects(self):
         v = [object(), object(), object()]
-        @pragma.deindex(v, 'v', return_source=True)
+        @pragma.deindex(v, 'v')
         def f():
             return v[0] + v[1] + v[2]
 
-        result = dedent('''
+        result = '''
         def f():
             return v_0 + v_1 + v_2
-        ''')
-        self.assertEqual(result.strip(), f.strip())
+        '''
+
+        self.assertSourceEqual(f, result)
 
     def test_with_unroll(self):
         v = [None, None, None]
@@ -47,15 +50,6 @@ class TestDeindex(PragmaTest):
             yield v_2
         ''')
         self.assertEqual(f.strip(), result.strip())
-
-    def test_with_literals_run(self):
-        v = [1, 2, 3]
-        @pragma.collapse_literals
-        @pragma.deindex(v, 'v')
-        def f():
-            return v[0] + v[1] + v[2]
-
-        self.assertEqual(f(), sum(v))
 
     def test_with_objects_run(self):
         v = [object(), object(), object()]
@@ -79,21 +73,23 @@ class TestDeindex(PragmaTest):
         ''')
         self.assertEqual(f.strip(), result.strip())
 
-    # Not yet supported
     def test_dict(self):
         d = {'a': 1, 'b': 2}
 
+        @pragma.deindex(d, 'd')
         def f(x):
             yield d['a']
             yield d[x]
 
-        self.assertRaises(NotImplementedError, pragma.deindex, d, 'd')
-        # result = dedent('''
-        # def f(x):
-        #     yield v_a
-        #     yield v[x]
-        # ''')
-        # self.assertEqual(f.strip(), result.strip())
+        result = '''
+        def f(x):
+            yield d_a
+            yield d[x]
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f('a')), [1, 1])
+        self.assertListEqual(list(f('b')), [1, 2])
 
     def test_dynamic_function_calls(self):
         funcs = [lambda x: x, lambda x: x ** 2, lambda x: x ** 3]
@@ -122,3 +118,21 @@ class TestDeindex(PragmaTest):
                 return funcs_2(x)
         ''')
         self.assertEqual(inspect.getsource(run_func).strip(), result.strip())
+
+    def test_len(self):
+        a = ['a', 'b', 'c']
+
+        @pragma.deindex(a, 'a')
+        @pragma.unroll
+        def f():
+            for l in range(len(a)):
+                print(l)
+
+        result = '''
+        def f():
+            print(0)
+            print(1)
+            print(2)
+        '''
+
+        self.assertSourceEqual(f, result)

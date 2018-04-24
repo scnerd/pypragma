@@ -1,5 +1,8 @@
 import ast
 from miniutils import magic_contract
+from functools import wraps
+import operator as ops
+import math
 
 import logging
 log = logging.getLogger(__name__)
@@ -87,6 +90,53 @@ except ImportError:  # pragma: nocover
     num_types = (int, float)
     float_types = (float,)
 
+primitive_types = tuple([str, bytes, bool, type(None)] + list(num_types) + list(float_types))
+
+
+def make_binop(op):
+    def f(self, other):
+        try:
+            return op(self.as_literal, other)
+        except:
+            try:
+                return op(type(other)(self.as_literal), other)
+            except:
+                try:
+                    return op(self.as_iterable, other)
+                except:
+                    raise AssertionError('Not able to perform {} on {} and {}'.format(op, self, other))
+
+    return f
+
+
+def make_rbinop(op):
+    def f(self, other):
+        try:
+            return op(other, self.as_literal)
+        except:
+            try:
+                return op(other, type(other)(self.as_literal))
+            except:
+                try:
+                    return op(other, self.as_iterable)
+                except:
+                    raise AssertionError('Not able to perform {} on {} and {}'.format(op, self, other))
+
+    return f
+
+
+def make_unop(op):
+    def f(self):
+        try:
+            return op(self.as_literal)
+        except:
+            try:
+                return op(self.as_iterable)
+            except:
+                raise AssertionError('Not able to perform {} on {}'.format(op, self))
+
+    return f
+
 
 class CollapsableNode:
     def __init__(self, node, ctxt):
@@ -95,15 +145,21 @@ class CollapsableNode:
 
     @property
     def as_literal(self):
-        return resolve_literal(self.node, self.ctxt, True)
+        res = resolve_literal(self.node, self.ctxt, True) if isinstance(self.node, ast.AST) else self.node
+        assert not isinstance(res, ast.AST), res
+        return res
 
     @property
     def as_iterable(self):
-        return resolve_iterable(self.node, self.ctxt)
+        res = resolve_iterable(self.node, self.ctxt) if isinstance(self.node, ast.AST) else self.node
+        assert res is not None, res
+        return res
 
     @property
     def as_indexable(self):
-        return resolve_indexable(self.node, self.ctxt)
+        res = resolve_indexable(self.node, self.ctxt) if isinstance(self.node, ast.AST) else self.node
+        assert res is not None, res
+        return res
 
     def __int__(self):
         return int(self.as_literal)
@@ -115,16 +171,20 @@ class CollapsableNode:
     def __float__(self):
         return float(self.as_literal)
 
+    def __complex__(self):
+        return complex(self.as_literal)
+
     def __str__(self):
-        res = self.as_literal
-        assert not isinstance(res, ast.AST)
-        return str(res)
+        return str(self.as_literal)
+
+    def __bytes__(self):
+        return bytes(self.as_literal)
 
     def __bool__(self):
         return bool(self.as_literal)
 
     def __iter__(self):
-        return iter(self.as_iterable)
+        return (CollapsableNode(v, self.ctxt) for v in self.as_iterable)
 
     def __getitem__(self, item):
         return self.as_indexable[item]
@@ -132,14 +192,78 @@ class CollapsableNode:
     def __getattr__(self, item):
         return getattr(self.as_literal, item)
 
-    # hash
-    # lt, le, gt, ge, eq, ne
-    # bytes
-    # instancecheck, subclasscheck
-    # call
-    # len
-    # contains
-    # all math ops
+    def __hash__(self):
+        return hash(self.as_literal)
+
+    def __len__(self):
+        return len(self.as_iterable)
+
+    def __contains__(self, item):
+        return item in self.as_indexable
+
+    def __call__(self, *args, **kwargs):
+        return self.as_literal(*args, **kwargs)
+
+    __add__ = make_binop(ops.add)
+    __sub__ = make_binop(ops.sub)
+    __mul__ = make_binop(ops.mul)
+    __truediv__ = make_binop(ops.truediv)
+    __floordiv__ = make_binop(ops.floordiv)
+    __matmul__ = make_binop(ops.matmul)
+    __mod__ = make_binop(ops.mod)
+    __divmod__ = make_binop(divmod)
+    __pow__ = make_binop(ops.pow)
+    __lshift__ = make_binop(ops.lshift)
+    __rshift__ = make_binop(ops.rshift)
+    __and__ = make_binop(ops.and_)
+    __xor__ = make_binop(ops.xor)
+    __or__ = make_binop(ops.or_)
+
+    __radd__ = make_rbinop(ops.add)
+    __rsub__ = make_rbinop(ops.sub)
+    __rmul__ = make_rbinop(ops.mul)
+    __rtruediv__ = make_rbinop(ops.truediv)
+    __rfloordiv__ = make_rbinop(ops.floordiv)
+    __rmatmul__ = make_rbinop(ops.matmul)
+    __rmod__ = make_rbinop(ops.mod)
+    __rdivmod__ = make_rbinop(divmod)
+    __rpow__ = make_rbinop(ops.pow)
+    __rlshift__ = make_rbinop(ops.lshift)
+    __rrshift__ = make_rbinop(ops.rshift)
+    __rand__ = make_rbinop(ops.and_)
+    __rxor__ = make_rbinop(ops.xor)
+    __ror__ = make_rbinop(ops.or_)
+
+    __iadd__ = make_binop(ops.iadd)
+    __isub__ = make_binop(ops.isub)
+    __imul__ = make_binop(ops.imul)
+    __itruediv__ = make_binop(ops.itruediv)
+    __ifloordiv__ = make_binop(ops.ifloordiv)
+    __imatmul__ = make_binop(ops.imatmul)
+    __imod__ = make_binop(ops.imod)
+    __ipow__ = make_binop(ops.ipow)
+    __ilshift__ = make_binop(ops.ilshift)
+    __irshift__ = make_binop(ops.irshift)
+    __iand__ = make_binop(ops.iand)
+    __ixor__ = make_binop(ops.ixor)
+    __ior__ = make_binop(ops.ior)
+
+    __lt__ = make_binop(ops.lt)
+    __le__ = make_binop(ops.le)
+    __gt__ = make_binop(ops.gt)
+    __ge__ = make_binop(ops.ge)
+    __eq__ = make_binop(ops.eq)
+    __ne__ = make_binop(ops.ne)
+
+    __neg__ = make_unop(ops.neg)
+    __pos__ = make_unop(ops.pos)
+    __abs__ = make_unop(ops.abs)
+    __invert__ = make_unop(ops.invert)
+
+    __round__ = make_unop(round)
+    __trunc__ = make_unop(math.trunc)
+    __floor__ = make_unop(math.floor)
+    __ceil__ = make_unop(math.ceil)
 
 
 from .literal import resolve_literal, make_ast_from_literal

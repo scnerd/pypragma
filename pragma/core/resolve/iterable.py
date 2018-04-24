@@ -40,7 +40,7 @@ def _resolve_iterable(node, ctxt):
         if indexable is not None:
             slice = resolve_literal(node.slice, ctxt, True)
             if not isinstance(slice, ast.AST):
-                return _resolve_iterable(indexable[slice])
+                return _resolve_iterable(indexable[slice], ctxt)
 
     elif isinstance(node, ast.UnaryOp):
         iterable = _resolve_iterable(node.operand, ctxt)
@@ -67,7 +67,13 @@ def _resolve_iterable(node, ctxt):
         return iter(result)
 
     elif isinstance(node, (ast.Set, ast.Dict)):
-        raise NotImplementedError()
+        if isinstance(node, ast.Dict):
+            vals = node.keys
+        else:
+            vals = node.elts
+        if any(isinstance(v, ast.AST) for v in vals):
+            return None
+        return iter(set(vals))
 
 
 def _resolve_args(args, ctxt):

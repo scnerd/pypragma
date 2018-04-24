@@ -24,15 +24,17 @@ def resolve_indexable(node, ctxt):
     :param ctxt: The current environment
     :type ctxt: DictStack
     :return: An object that can be indexed, returning an ast.AST value, if possible, else None
-    :rtype: list|dict|None
+    :rtype: dict|None
     """
     iterable = resolve_iterable(node, ctxt)
     if iterable is not None:
-        return list(iterable)
+        return dict(enumerate(iterable))
 
     obj = resolve_name_or_attribute(node, ctxt)
     if isinstance(obj, dict):
         return obj
+    elif isinstance(obj, ast.Dict):
+        return dict(zip(obj.keys, obj.values))
 
 
 from pragma.core.resolve import resolve_name_or_attribute
