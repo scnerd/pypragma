@@ -92,7 +92,7 @@ primitive_types = tuple([str, bytes, bool, type(None)] + list(num_types) + list(
 try:
     primitive_ast_types = (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Constant, ast.JoinedStr)
 except AttributeError:  # Python <3.6
-    primitive_ast_types = (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Constant)
+    primitive_ast_types = (ast.Num, ast.Str, ast.Bytes, ast.NameConstant)
 
 
 def make_binop(op):
