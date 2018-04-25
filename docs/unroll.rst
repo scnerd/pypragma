@@ -18,7 +18,7 @@ could be identically replaced by::
 
 The ``unroll`` decorator accomplishes this by parsing the input function, performing the unrolling transformation on the function's AST, then compiling and returning the defined function.
 
-``unroll`` is currently smart enough to notice singly-defined variables and literals, as well as able to unroll the ``range`` function and unroll nested loops::
+``unroll`` is currently smart enough to notice literal defined variables and literals, as well as able to unroll the ``range`` function and unroll nested loops::
 
     @pragma.unroll
     def summation(x=0):
@@ -103,8 +103,5 @@ Also supported are recognizing top-level breaks. Breaks inside conditionals aren
 
 
 
-.. todo:: Handling constant sets and dictionaries (since the values contained in the AST's, not the AST nodes themselves, must be uniquely identified)
-.. todo:: Tuple assignments (``a, b = 3, 4``)
 .. todo:: Assignment to known lists and dictionaries
-.. todo:: ``zip``, ``reversed``, and other known operators, when performed on definition-time constant iterables
 .. todo:: Resolving compile-time known conditionals before detecting top-level breaks

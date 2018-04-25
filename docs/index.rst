@@ -157,8 +157,6 @@ Some special cases include:
 
 - In ``collapse_literals``, any operation on known values gets reduced to a known value
 
-.. todo:: Support deterministic functions of known values
-
 Additionally, as a utility primarily for testing and debugging, the source code can be easily retrieved from each decorator *instead* of the transformed function by using the ``return_source=True`` argument.
 
 Quick Examples
