@@ -51,3 +51,6 @@ class DictStack:
     def pop(self):
         self.constants.pop()
         return self.dicts.pop()
+
+    def __repr__(self):
+        return "{{...{}...{}}}".format(len(self.dicts) - 1, self.dicts[-2:])

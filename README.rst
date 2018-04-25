@@ -59,6 +59,12 @@ Such a modification can only be done by the programmer if the dynamic features a
 This example is converted, in place and at runtime, to exactly the unrolled code above.
 
 
+Documentation
+=============
+
+Complete documentation can be found over at `RTFD <http://pypragma.readthedocs.io/en/latest/>`_.
+
+
 Installation
 ============
 
@@ -133,7 +139,7 @@ Certain keywords are reserved, of course, as will be defined in the documentatio
 
 A side effect of the proper Python syntax is that functions can have their source code retrieved by any normal Pythonic reflection:
 
-.. code-block:: ipython
+.. code-block:: python
 
    In [1]: @pragma.unroll(num_pows=3)
       ...: def pows(i):
@@ -159,9 +165,7 @@ Quick Examples
 Collapse Literals
 +++++++++++++++++
 
-:doc:`Complete documentation <collapse_literals>`:
-
-.. code-block:: ipython
+.. code-block:: python
 
    In [1]: @pragma.collapse_literals(x=5)
       ...: def f(y):
@@ -179,9 +183,7 @@ Collapse Literals
 De-index Arrays
 +++++++++++++++
 
-:doc:`Complete documentation <deindex>`:
-
-.. code-block:: ipython
+.. code-block:: python
 
    In [1]: fns = [math.sin, math.cos, math.tan]
 
@@ -208,7 +210,7 @@ De-index Arrays
 
 Note that, while it's not evident from the above printed source code, each variable ``fns_X`` is assigned to the value of ``fns[X]`` at the time when the decoration occurs:
 
-.. code-block:: ipython
+.. code-block:: python
 
    In [4]: call(0, math.pi)
    Out[4]: 1.2246467991473532e-16  # AKA, sin(pi) = 0
@@ -219,9 +221,7 @@ Note that, while it's not evident from the above printed source code, each varia
 Unroll
 ++++++
 
-:doc:`Complete documentation <unroll>`:
-
-.. code-block:: ipython
+.. code-block:: python
 
    In [1]: p_or_m = [1, -1]
 
@@ -246,9 +246,7 @@ Unroll
 Inline
 ++++++
 
-:doc:`Complete documentation <inline>`:
-
-.. code-block:: ipython
+.. code-block:: python
 
    In [1]: def sqr(x):
       ...:     return x ** 2
@@ -276,3 +274,45 @@ Inline
        _sqr_return_1 = _sqr_0.get('return', None)
        del _sqr_0
        return _sqr_return_0 + _sqr_return_1  # Substitute the returned values for the function calls
+
+Stacking Transformations
+++++++++++++++++++++++++
+
+The above examples demonstrate how to perform `pragma` transformations to a function. It should be especially noted, however, that since each transformer returns a proper Python function, they can stack seamlessly:
+
+.. code-block:: python
+
+    In [1]: def make_dynamic_caller(*fns):
+       ...:     @pragma.deindex(fns, 'fns')
+       ...:     @pragma.unroll(num_fns=len(fns))
+       ...:     def dynamic_call(i, x):
+       ...:         for j in range(num_fns):
+       ...:             if i == j:
+       ...:                 return fns[j](x)
+       ...:
+       ...:     return dynamic_call
+
+    In [2]: f = make_dynamic_caller(math.sin, math.cos, math.tan)
+
+    In [3]: f??
+    Signature: f(i, x)
+    Source:
+    def dynamic_call(i, x):
+        if i == 0:
+            return fns_0(x)
+        if i == 1:
+            return fns_1(x)
+        if i == 2:
+            return fns_2(x)
+    File:      /tmp/tmpf9tjaffi
+    Type:      function
+
+    In [4]: g = pragma.collapse_literals(i=1)(f)
+
+    In [5]: g??
+    Signature: g(i, x)
+    Source:
+    def dynamic_call(i, x):
+        return fns_1(x)
+    File:      /tmp/tmpbze5i__2
+    Type:      function

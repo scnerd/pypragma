@@ -15,10 +15,16 @@ class TestLambdaLift(PragmaTest):
     def test_basic(self):
         x = 3
 
-        @pragma.lift(imports=False)
+        @pragma.lift(annotate_types=True, imports=False)
         def f(y):
             return x + y
 
+        result = '''
+        def f(y, *, x: int):
+            return x + y
+        '''
+
+        self.assertSourceEqual(f, result)
         self.assertRaises(TypeError, f, 1)
         self.assertEqual(f(1, x=2), 3)
 
@@ -29,6 +35,12 @@ class TestLambdaLift(PragmaTest):
         def f(y):
             return x + y
 
+        result = '''
+        def f(y, *, x=3):
+            return x + y
+        '''
+
+        self.assertSourceEqual(f, result)
         self.assertEqual(f(1), 4)
         self.assertEqual(f(1, x=2), 3)
 
@@ -39,23 +51,15 @@ class TestLambdaLift(PragmaTest):
         def f(y):
             return x + y
 
+        result = '''
+        def f(y, *, x: int):
+            return x + y
+        '''
+
+        self.assertSourceEqual(f, result)
         self.assertEqual(f(1, x=2), 3)
         import inspect
         self.assertIn(inspect.signature(f).parameters['x'].annotation, (int, 'int'))
-
-    def test_source(self):
-        x = 3
-
-        @pragma.lift(annotate_types=True, defaults=True, return_source=True, imports=False)
-        def f(y):
-            return x + y
-
-        result = dedent('''
-        def f(y, *, x: int=3):
-            return x + y
-        ''')
-
-        self.assertEqual(f.strip(), result.strip())
 
     def test_not_all_locals(self):
         x = 1

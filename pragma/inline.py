@@ -1,6 +1,8 @@
 from collections import OrderedDict as odict
 
 from .core import *
+import logging
+log = logging.getLogger(__name__)
 
 # stmt = FunctionDef(identifier name, arguments args,
 #                        stmt* body, expr* decorator_list, expr? returns)
@@ -106,18 +108,18 @@ class _InlineBodyTransformer(TrackedContextTransformer):
     def visit_Yield(self, node):
         self.had_yield = True
         if node.value:
-            return ast.Call(func=ast.Attribute(value=make_name(self.func_name, 'yield', self.n, ctx=ast.Load),
+            return ast.Call(func=ast.Attribute(value=make_name(self.func_name, 'yield', self.n),
                                                attr='append',
-                                               ctx=ast.Load),
+                                               ctx=ast.Load()),
                             args=[self.visit(node.value)],
                             keywords=[])
         return node
 
     def visit_YieldFrom(self, node):
         self.had_yield = True
-        return ast.Call(func=ast.Attribute(value=make_name(self.func_name, 'yield', self.n, ctx=ast.Load),
+        return ast.Call(func=ast.Attribute(value=make_name(self.func_name, 'yield', self.n),
                                            attr='extend',
-                                           ctx=ast.Load),
+                                           ctx=ast.Load()),
                         args=[self.visit(node.value)],
                         keywords=[])
 
@@ -148,7 +150,7 @@ class InlineTransformer(TrackedContextTransformer):
         """When we see a function call, insert the function body into the current code block, then replace the call
         with the return expression """
         node = self.generic_visit(node)
-        node_fun = resolve_name_or_attribute(resolve_literal(node.func, self.ctxt), self.ctxt)
+        node_fun = self.resolve_name_or_attribute(self.resolve_literal(node.func))
 
         for (fun, fname, fsig, fbody) in self.funs:
             if fun != node_fun:
@@ -176,7 +178,7 @@ class InlineTransformer(TrackedContextTransformer):
             flattened_args = []
             for a in args:
                 if isinstance(a, ast.Starred):
-                    a = constant_iterable(a.value, self.ctxt)
+                    a = self.resolve_iterable(a.value)
                     if a:
                         flattened_args.extend(a)
                     else:
@@ -194,6 +196,7 @@ class InlineTransformer(TrackedContextTransformer):
 
             # Create args dictionary
             final_args = []
+            final_kwargs = []
 
             for arg_name, arg_value in bound_args.arguments.items():
                 if isinstance(arg_value, tuple):
@@ -204,19 +207,21 @@ class InlineTransformer(TrackedContextTransformer):
                     values = list(values)
                     arg_value = ast.Dict(keys=keys, values=values)
                 # fun_name['param_name'] = param_value
-                final_args.append((arg_name, arg_value))
+                final_kwargs.append((arg_name, arg_value))
 
             if kw_dict:
-                final_args.append((None, kw_dict))
+                final_kwargs.append((None, kw_dict))
 
             if func_for_inlining.had_yield:
-                final_args.append(('yield', ast.List(elts=[])))
+                final_args.append(ast.List(elts=[ast.Tuple(elts=[ast.Str('yield'), ast.List(elts=[], ctx=ast.Load())],
+                                                           ctx=ast.Load())],
+                                           ctx=ast.Load()))
 
             # fun_name = {}
             dict_call = ast.Call(
                 func=ast.Name(id='dict', ctx=ast.Load()),
-                args=[],
-                keywords=[ast.keyword(arg=name, value=val) for name, val in final_args]
+                args=final_args,
+                keywords=[ast.keyword(arg=name, value=val) for name, val in final_kwargs]
             )
             new_code.append(ast.Assign(
                 targets=[ast.Name(id=args_dict_name, ctx=ast.Store())],
