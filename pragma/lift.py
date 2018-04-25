@@ -7,10 +7,10 @@ from types import ModuleType
 import astor
 from miniutils import magic_contract, optional_argument_decorator
 
-log = logging.getLogger(__name__)
-
-from .core.transformer import function_ast
 from .core.resolve import make_ast_from_literal
+from .core.transformer import function_ast
+
+log = logging.getLogger(__name__)
 
 _exclude = {'__builtin__', '__builtins__', 'builtin', 'builtins'}
 if sys.version_info < (3, 6):

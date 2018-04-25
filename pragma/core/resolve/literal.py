@@ -5,40 +5,10 @@ import warnings
 
 from miniutils import magic_contract
 
-from pragma.core import _log_call
-from pragma.core.resolve import CollapsableNode
-from pragma.core.stack import DictStack
+from .. import _log_call, DictStack
+from . import CollapsableNode
 
 log = logging.getLogger(__name__)
-
-
-@magic_contract
-def can_have_side_effect(node, ctxt):
-    """
-    Checks whether or not copying the given AST node could cause side effects in the resulting function
-    :param node: The AST node to be checked
-    :type node: AST
-    :param ctxt: The environment stack to use when running the check
-    :type ctxt: DictStack
-    :return: Whether or not duplicating this node could cause side effects
-    :rtype: bool
-    """
-    if isinstance(node, ast.AST):
-        # print("Can {} have side effects?".format(node))
-        if isinstance(node, ast.Call):
-            # print("  Yes!")
-            return True
-        else:
-            for field, old_value in ast.iter_fields(node):
-                if isinstance(old_value, list):
-                    return any(can_have_side_effect(n, ctxt) for n in old_value if isinstance(n, ast.AST))
-                elif isinstance(old_value, ast.AST):
-                    return can_have_side_effect(old_value, ctxt)
-                else:
-                    # print("  No!")
-                    return False
-    else:
-        return False
 
 
 @_log_call

@@ -1,16 +1,15 @@
 import ast
+import builtins
+import inspect
 import logging
 import math
 import operator as ops
 
 from miniutils import magic_contract
 
+from .. import _log_call, DictStack, _pretty_str
+
 log = logging.getLogger(__name__)
-
-from pragma.core import _log_call, DictStack, _pretty_str
-
-import builtins
-import inspect
 
 _builtin_funcs = inspect.getmembers(builtins, lambda o: callable(o))
 pure_functions = {func for name, func in _builtin_funcs} - {print, delattr, exec, eval, input, open, setattr, super}

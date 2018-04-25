@@ -3,8 +3,8 @@ import logging
 
 from miniutils import magic_contract
 
-from pragma.core import _log_call
-from pragma.core.resolve import pure_functions
+from .. import _log_call
+from . import pure_functions
 
 log = logging.getLogger(__name__)
 

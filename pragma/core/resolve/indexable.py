@@ -3,9 +3,9 @@ import logging
 
 from miniutils import magic_contract
 
-log = logging.getLogger(__name__)
+from .. import _log_call, DictStack
 
-from pragma.core import _log_call, DictStack
+log = logging.getLogger(__name__)
 
 
 @_log_call

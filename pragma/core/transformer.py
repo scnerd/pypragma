@@ -7,15 +7,15 @@ import tempfile
 import textwrap
 import warnings
 
-log = logging.getLogger(__name__)
-
 import astor
 from miniutils.opt_decorator import optional_argument_decorator
 from miniutils import magic_contract
 
-from pragma.core.stack import DictStack
-from pragma.core.resolve import resolve_literal, resolve_iterable, resolve_indexable, resolve_name_or_attribute, \
+from .stack import DictStack
+from .resolve import resolve_literal, resolve_iterable, resolve_indexable, resolve_name_or_attribute, \
     make_ast_from_literal
+
+log = logging.getLogger(__name__)
 
 
 @magic_contract
