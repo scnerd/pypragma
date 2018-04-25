@@ -8,6 +8,7 @@ from .test_pragma import PragmaTest
 class TestDeindex(PragmaTest):
     def test_with_literals(self):
         v = [1, 2, 3]
+
         @pragma.collapse_literals
         @pragma.deindex(v, 'v')
         def f():
@@ -23,6 +24,7 @@ class TestDeindex(PragmaTest):
 
     def test_with_objects(self):
         v = [object(), object(), object()]
+
         @pragma.deindex(v, 'v')
         def f():
             return v[0] + v[1] + v[2]
@@ -34,13 +36,28 @@ class TestDeindex(PragmaTest):
 
         self.assertSourceEqual(f, result)
 
+    def test_with_objects_same_instance(self):
+        v = [object(), object(), object()]
+
+        @pragma.deindex(v, 'v')
+        def f():
+            return v[0]
+
+        result = '''
+        def f():
+            return v_0
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertIs(f(), v[0])
+
     def test_with_unroll(self):
         v = [None, None, None]
 
         @pragma.deindex(v, 'v', return_source=True)
-        @pragma.unroll(lv=len(v))
+        @pragma.unroll
         def f():
-            for i in range(lv):
+            for i in range(len(v)):
                 yield v[i]
 
         result = dedent('''
@@ -49,29 +66,24 @@ class TestDeindex(PragmaTest):
             yield v_1
             yield v_2
         ''')
-        self.assertEqual(f.strip(), result.strip())
 
-    def test_with_objects_run(self):
-        v = [object(), object(), object()]
-        @pragma.deindex(v, 'v')
-        def f():
-            return v[0]
-
-        self.assertEqual(f(), v[0])
+        self.assertSourceEqual(f, result)
 
     def test_with_variable_indices(self):
         v = [object(), object(), object()]
-        @pragma.deindex(v, 'v', return_source=True)
+
+        @pragma.deindex(v, 'v')
         def f(x):
             yield v[0]
             yield v[x]
 
-        result = dedent('''
+        result = '''
         def f(x):
             yield v_0
             yield v[x]
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
+
+        self.assertSourceEqual(f, result)
 
     def test_dict(self):
         d = {'a': 1, 'b': 2}
@@ -108,7 +120,7 @@ class TestDeindex(PragmaTest):
         self.assertEqual(run_func(1, 5), 25)
         self.assertEqual(run_func(2, 5), 125)
 
-        result = dedent('''
+        result = '''
         def run_func(i, x):
             if i == 0:
                 return funcs_0(x)
@@ -116,8 +128,9 @@ class TestDeindex(PragmaTest):
                 return funcs_1(x)
             if i == 2:
                 return funcs_2(x)
-        ''')
-        self.assertEqual(inspect.getsource(run_func).strip(), result.strip())
+        '''
+
+        self.assertSourceEqual(run_func, result)
 
     def test_len(self):
         a = ['a', 'b', 'c']
