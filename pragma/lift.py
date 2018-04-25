@@ -45,7 +45,7 @@ class lift:
         self.lift_globals = lift_globals
         self.imports = imports
 
-    def annotate(self, k, v):
+    def _annotate(self, k, v):
         if self.annotate_types:
             if isinstance(self.annotate_types, bool):
                 return ast.Name(id=type(v).__name__, ctx=ast.Load())
@@ -62,7 +62,7 @@ class lift:
                     return result
         return None
 
-    def get_default(self, k, v):
+    def _get_default(self, k, v):
         if self.defaults:
             if isinstance(self.defaults, bool):
                 attempt = v
@@ -100,45 +100,48 @@ class lift:
 
         return free_vars
 
+    def _insert_imports(self, f, f_body, free_vars):
+        add_imports = []
 
+        for k, v in f.__globals__.items():
+            if isinstance(v, ModuleType):
+                add_imports.append((k, v))
+
+        old_free_vars = free_vars
+        free_vars = []
+        for k, v in old_free_vars:
+            if isinstance(v, ModuleType):
+                add_imports.append((k, v))
+            else:
+                free_vars.append((k, v))
+
+        if isinstance(f_body[0], ast.Expr) and isinstance(f_body[0].value, _ast_str_types):
+            f_docstring = f_body[:1]
+            f_body = f_body[1:]
+        else:
+            f_docstring = []
+
+        f_body = f_docstring + [
+            ast.Import(names=[ast.alias(name=v.__name__, asname=k if k != v.__name__ else None)])
+            for k, v in add_imports
+            if (isinstance(self.imports, bool) or k in self.imports) and k not in _exclude
+        ] + f_body
+        return f_body, free_vars
 
     @magic_contract(f='Callable', returns='Callable|str')
     def __call__(self, f):
         f_mod, f_body, f_file = function_ast(f)
         # Grab function closure variables
-        add_imports = []
 
         free_vars = self._get_free_vars(f)
 
         if self.imports:
-            for k, v in f.__globals__.items():
-                if isinstance(v, ModuleType):
-                    add_imports.append((k, v))
-
-            old_free_vars = free_vars
-            free_vars = []
-            for k, v in old_free_vars:
-                if isinstance(v, ModuleType):
-                    add_imports.append((k, v))
-                else:
-                    free_vars.append((k, v))
-
-            if isinstance(f_body[0], ast.Expr) and isinstance(f_body[0].value, _ast_str_types):
-                f_docstring = f_body[:1]
-                f_body = f_body[1:]
-            else:
-                f_docstring = []
-
-            f_body = f_docstring + [
-                ast.Import(names=[ast.alias(name=v.__name__, asname=k if k != v.__name__ else None)])
-                for k, v in add_imports
-                if (isinstance(self.imports, bool) or k in self.imports) and k not in _exclude
-            ] + f_body
+            f_body, free_vars = self._insert_imports(f, f_body, free_vars)
 
         func_def = f_mod.body[0]
 
-        new_kws = [ast.arg(arg=k, annotation=self.annotate(k, v)) for k, v in free_vars]
-        new_kw_defaults = [self.get_default(k, v) for k, v in free_vars]
+        new_kws = [ast.arg(arg=k, annotation=self._annotate(k, v)) for k, v in free_vars]
+        new_kw_defaults = [self._get_default(k, v) for k, v in free_vars]
 
         new_func_def = ast.FunctionDef(
             name=func_def.name,
