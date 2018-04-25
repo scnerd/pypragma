@@ -89,12 +89,7 @@ class lift:
 
         return None
 
-    @magic_contract(f='Callable', returns='Callable|str')
-    def __call__(self, f):
-        f_mod, f_body, f_file = function_ast(f)
-        # Grab function closure variables
-        add_imports = []
-
+    def _get_free_vars(self, f):
         if isinstance(f.__closure__, tuple):
             free_vars = [(k, v.cell_contents) for k, v in zip(f.__code__.co_freevars, f.__closure__)]
         else:
@@ -102,6 +97,18 @@ class lift:
 
         for glbl in self.lift_globals or []:
             free_vars.append((glbl, f.__globals__[glbl]))
+
+        return free_vars
+
+
+
+    @magic_contract(f='Callable', returns='Callable|str')
+    def __call__(self, f):
+        f_mod, f_body, f_file = function_ast(f)
+        # Grab function closure variables
+        add_imports = []
+
+        free_vars = self._get_free_vars(f)
 
         if self.imports:
             for k, v in f.__globals__.items():
