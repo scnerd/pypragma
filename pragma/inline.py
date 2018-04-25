@@ -1,7 +1,7 @@
 from collections import OrderedDict as odict
 
 from .core import *
-import logging
+
 log = logging.getLogger(__name__)
 
 # stmt = FunctionDef(identifier name, arguments args,

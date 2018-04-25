@@ -1,7 +1,7 @@
 import ast
+import functools
 import inspect
 import logging
-import functools
 
 import astor
 from miniutils.magic_contract import safe_new_contract
@@ -11,6 +11,7 @@ log = logging.getLogger(__name__.split('.')[0])
 
 def _is_iterable(x):
     return hasattr(x, '__iter__')
+
 
 def _is_indexable(x):
     return hasattr(x, '__getitem__')

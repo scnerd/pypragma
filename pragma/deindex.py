@@ -1,9 +1,10 @@
 import ast
+import logging
 
 from miniutils import magic_contract
 
 from .collapse_literals import collapse_literals
-import logging
+
 log = logging.getLogger(__name__)
 
 

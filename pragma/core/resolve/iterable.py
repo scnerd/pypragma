@@ -1,11 +1,11 @@
 import ast
-import warnings
-from copy import deepcopy
+import logging
+
 from miniutils import magic_contract
 
 from pragma.core import _log_call
 from pragma.core.resolve import pure_functions
-import logging
+
 log = logging.getLogger(__name__)
 
 
@@ -124,6 +124,7 @@ def resolve_iterable(node, ctxt):
         return None
 
 
-from pragma.core.resolve import _collapse_map, CollapsableNode, resolve_name_or_attribute, _resolve_args, _resolve_keywords
+from pragma.core.resolve import _collapse_map, resolve_name_or_attribute, _resolve_args, \
+    _resolve_keywords
 from pragma.core.resolve.indexable import resolve_indexable
 from pragma.core.resolve.literal import resolve_literal

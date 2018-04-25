@@ -1,13 +1,14 @@
 import ast
-import astor
-import tempfile
-import sys
-from miniutils import magic_contract, optional_argument_decorator
-from types import ModuleType
 import logging
+import sys
+import tempfile
+from types import ModuleType
+
+import astor
+from miniutils import magic_contract, optional_argument_decorator
+
 log = logging.getLogger(__name__)
 
-from .core import TrackedContextTransformer, make_function_transformer, resolve_literal
 from .core.transformer import function_ast
 from .core.resolve import make_ast_from_literal
 
@@ -93,7 +94,8 @@ def lift(return_source=False, save_source=True, annotate_types=False, defaults=F
                         if isinstance(result, str):
                             result = ast.Str(s=result)
                         if result and not isinstance(result, ast.expr):
-                            raise TypeError("Type annotation must be a string or AST expression (got {})".format(result))
+                            raise TypeError(
+                                "Type annotation must be a string or AST expression (got {})".format(result))
                         return result
             return None
 

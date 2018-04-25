@@ -1,7 +1,5 @@
-import warnings
-
 from .core import *
-import logging
+
 log = logging.getLogger(__name__)
 
 
@@ -33,7 +31,8 @@ class UnrollTransformer(TrackedContextTransformer):
             for elt in node.elts:
                 yield from self._names(elt)
         else:
-            warnings.warn("Not sure how to handle {} in a for loop target list yet".format(astor.to_source(node).strip()))
+            warnings.warn(
+                "Not sure how to handle {} in a for loop target list yet".format(astor.to_source(node).strip()))
 
     def visit_For(self, node):
         iterable = self.resolve_iterable(node.iter)

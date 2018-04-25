@@ -1,6 +1,8 @@
 import ast
-from miniutils import magic_contract
 import logging
+
+from miniutils import magic_contract
+
 log = logging.getLogger(__name__)
 
 from pragma.core import _log_call, DictStack
@@ -104,6 +106,7 @@ def _resolve_indexable(node, ctxt):
     elif isinstance(node, ast.Dict):
         return _resolve_indexable_dict(node, ctxt)
 
+
 @_log_call
 @magic_contract
 def resolve_indexable(node, ctxt):
@@ -125,6 +128,7 @@ def resolve_indexable(node, ctxt):
         return resolve_iterable(node, ctxt)
 
 
-from pragma.core.resolve import resolve_name_or_attribute, _resolve_args, _resolve_keywords, pure_functions, _collapse_map
+from pragma.core.resolve import resolve_name_or_attribute, _resolve_args, _resolve_keywords, pure_functions, \
+    _collapse_map
 from pragma.core.resolve.iterable import resolve_iterable
 from pragma.core.resolve.literal import resolve_literal
