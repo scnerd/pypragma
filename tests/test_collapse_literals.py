@@ -352,3 +352,18 @@ class TestCollapseLiterals(PragmaTest):
         '''
 
         self.assertSourceEqual(f, result)
+
+    def test_multi_dicts(self):
+        d = {'a': {'b': {'c': 2}}}
+
+        @pragma.collapse_literals
+        def f():
+            return d['a']['b']['c']
+
+        result = '''
+        def f():
+            return 2
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(), 2)
