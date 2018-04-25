@@ -367,3 +367,18 @@ class TestCollapseLiterals(PragmaTest):
 
         self.assertSourceEqual(f, result)
         self.assertEqual(f(), 2)
+
+    def test_sum_lists(self):
+        a = [1, 2, 3]
+
+        @pragma.collapse_literals
+        def f():
+            return (a + a)[4] + (a * 2)[4]
+
+        result = '''
+        def f():
+            return 4
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(), 4)
