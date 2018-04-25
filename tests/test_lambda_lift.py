@@ -65,16 +65,16 @@ class TestLambdaLift(PragmaTest):
         x = 1
         y = 2
 
-        @pragma.lift(return_source=True, imports=False)
+        @pragma.lift(imports=False)
         def f(z):
             return z + x
 
-        result = dedent('''
+        result = '''
         def f(z, *, x):
             return z + x
-        ''')
+        '''
 
-        self.assertEqual(f.strip(), result.strip())
+        self.assertSourceEqual(f, result)
 
     def test_defaults_thoroughly(self):
         x = 1
@@ -105,14 +105,16 @@ class TestLambdaLift(PragmaTest):
         ''')
 
     def test_no_closure(self):
-        @pragma.lift(return_source=True, imports=False)
+        @pragma.lift(imports=False)
         def f(x):
             return x
 
-        self.assertEqual(f.strip(), dedent('''
+        result = '''
         def f(x):
             return x
-        ''').strip())
+        '''
+
+        self.assertSourceEqual(f, result)
 
     def test_method(self):
         class A:
@@ -131,12 +133,14 @@ class TestLambdaLift(PragmaTest):
         self.assertEqual(A.f(something_else, 1), 3)
 
     def test_global(self):
-        global_g = pragma.lift(return_source=True, lift_globals=['global_x'], defaults=True, imports=False)(global_f)
+        global_g = pragma.lift(lift_globals=['global_x'], defaults=True, imports=False)(global_f)
 
-        self.assertEqual(global_g.strip(), dedent('''
+        result = '''
         def global_f(y, *, global_x=10):
             return global_x + y
-        ''').strip())
+        '''
+
+        self.assertSourceEqual(global_g, result)
 
     def test_imports(self):
         import sys
@@ -146,13 +150,13 @@ class TestLambdaLift(PragmaTest):
 
         self.assertEqual(f(), sys.version_info)
         self.assertEqual(pragma.lift(f)(), sys.version_info)
-        self.assertSourceEqual(pragma.lift(return_source=True, imports=True)(f), '''
+        self.assertSourceEqual(pragma.lift(imports=True)(f), '''
         def f():
             import pragma
             import sys
             return sys.version_info
         ''')
-        self.assertSourceEqual(pragma.lift(return_source=True, imports=['sys'])(f), '''
+        self.assertSourceEqual(pragma.lift(imports=['sys'])(f), '''
         def f():
             import sys
             return sys.version_info
@@ -163,7 +167,7 @@ class TestLambdaLift(PragmaTest):
         def g():
             return pseudo_sys.version_info
 
-        self.assertSourceEqual(pragma.lift(return_source=True, imports=True)(g), '''
+        self.assertSourceEqual(pragma.lift(imports=True)(g), '''
         def g():
             import pragma
             import sys as pseudo_sys
@@ -171,16 +175,18 @@ class TestLambdaLift(PragmaTest):
         ''')
 
     def test_docstring(self):
-        @pragma.lift(return_source=True, imports=True)
+        @pragma.lift(imports=True)
         def f(x):
             'some docstring'
             return x + 1
 
-        self.assertSourceEqual(f, '''
+        result = '''
         def f(x):
             """some docstring"""
             import pragma
             return x + 1
-        ''')
+        '''
+
+        self.assertSourceEqual(f, result)
 
 

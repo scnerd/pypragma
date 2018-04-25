@@ -60,7 +60,9 @@ class TestInline(PragmaTest):
         def f():
             g(1, 2, 3, 4, y=5, z=6, w=7)
 
-        result1 = dedent('''
+        inline_f = pragma.inline(g)(f)
+
+        result1 = '''
         def f():
             _g_0 = dict(x=1, args=(2, 3, 4), y=5, kwargs={'z': 6, 'w': 7})
             for ____ in [None]:
@@ -72,8 +74,8 @@ class TestInline(PragmaTest):
                     print('{} = {}'.format(k, v))
             del _g_0
             None
-        ''')
-        result2 = dedent('''
+        '''
+        result2 = '''
         def f():
             _g_0 = dict(x=1, args=(2, 3, 4), y=5, kwargs={'w': 7, 'z': 6})
             for ____ in [None]:
@@ -85,11 +87,10 @@ class TestInline(PragmaTest):
                     print('{} = {}'.format(k, v))
             del _g_0
             None
-        ''')
-        self.assertIn(pragma.inline(g, return_source=True)(f).strip(),
-                      [result1.strip(), result2.strip()])
+        '''
 
-        self.assertEqual(f(), pragma.inline(g)(f)())
+        self.assertSourceIn(inline_f, result1, result2)
+        self.assertEqual(f(), inline_f())
 
     def test_recursive(self):
         def fib(n):
@@ -101,28 +102,21 @@ class TestInline(PragmaTest):
                 return fib(n-1) + fib(n-2)
 
         from miniutils import tic
+        known_fibs = {
+            0: 1,
+            1: 1,
+            2: 2,
+            3: 3,
+            4: 5,
+            5: 8,
+        }
         toc = tic()
-        fib_code = pragma.inline(fib, max_depth=1, return_source=True)(fib)
-        toc("Inlined recursive function to depth 1")
-        print(fib_code)
-        # fib_code = pragma.inline(fib, max_depth=3, return_source=True)(fib)
-        # toc("Inlined recursive function to depth 3")
-        # print(fib_code)
-
-        fib = pragma.inline(fib, max_depth=2)(fib)
-        toc("Inlined executable function")
-        self.assertEqual(fib(0), 1)
-        toc("Ran fib(0)")
-        self.assertEqual(fib(1), 1)
-        toc("Ran fib(1)")
-        self.assertEqual(fib(2), 2)
-        toc("Ran fib(2)")
-        self.assertEqual(fib(3), 3)
-        toc("Ran fib(3)")
-        self.assertEqual(fib(4), 5)
-        toc("Ran fib(4)")
-        self.assertEqual(fib(5), 8)
-        toc("Ran fib(5)")
+        for depth in range(1, 4):
+            inline_fib = pragma.inline(fib, max_depth=depth)(fib)
+            toc('Inlined fibonacci function to depth of {}'.format(inline_fib))
+            for k, v in known_fibs.items():
+                self.assertEqual(fib(k), v)
+                toc("Ran fib_{}({})=={}".format(depth, k, v))
 
     # def test_failure_cases(self):
     #     def g_for(x):
@@ -143,9 +137,9 @@ class TestInline(PragmaTest):
                 return 0
             return g(y - 1)
 
-        f_code = pragma.inline(g, return_source=True)(f)
+        f_code = pragma.inline(g)(f)
 
-        result = dedent('''
+        result = '''
         def f(y):
             if y <= 0:
                 return 0
@@ -156,12 +150,13 @@ class TestInline(PragmaTest):
             _g_return_0 = _g_0.get('return', None)
             del _g_0
             return _g_return_0
-        ''')
-        self.assertEqual(f_code.strip(), result.strip())
+        '''
 
-        f_unroll_code = pragma.unroll(return_source=True)(pragma.inline(g)(f))
+        self.assertSourceEqual(f_code, result)
 
-        result_unroll = dedent('''
+        f_unroll_code = pragma.unroll(pragma.inline(g)(f))
+
+        result_unroll = '''
         def f(y):
             if y <= 0:
                 return 0
@@ -170,10 +165,11 @@ class TestInline(PragmaTest):
             _g_return_0 = _g_0.get('return', None)
             del _g_0
             return _g_return_0
-        ''')
-        self.assertEqual(f_unroll_code.strip(), result_unroll.strip())
+        '''
 
-        f2_code = pragma.inline(f, g, return_source=True, f=f)(f)
+        self.assertSourceEqual(f_unroll_code, result_unroll)
+
+        f2_code = pragma.inline(f, g, f=f)(f)
 
         result2 = dedent('''
         def f(y):
@@ -196,8 +192,8 @@ class TestInline(PragmaTest):
             del _g_0
             return _g_return_0
         ''')
-        print(f2_code)
-        self.assertEqual(f2_code.strip(), result2.strip())
+
+        self.assertSourceEqual(f2_code, result2)
 
     def test_generator(self):
         def g(y):
@@ -205,11 +201,11 @@ class TestInline(PragmaTest):
                 yield i
             yield from range(y)
 
-        @pragma.inline(g, return_source=True)
+        @pragma.inline(g)
         def f(x):
             return sum(g(x))
 
-        result = dedent('''
+        result = '''
         def f(x):
             _g_0 = dict([('yield', [])], y=x)
             for ____ in [None]:
@@ -219,22 +215,24 @@ class TestInline(PragmaTest):
             _g_return_0 = _g_0['yield']
             del _g_0
             return sum(_g_return_0)
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
+
+        self.assertSourceEqual(f, result)
 
     def test_variable_starargs(self):
         def g(a, b, c):
             return a + b + c
 
-        @pragma.inline(g, return_source=True)
+        @pragma.inline(g)
         def f(x):
             return g(*x)
 
-        result = dedent('''
+        result = '''
         def f(x):
             return g(*x)
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
+
+        self.assertSourceEqual(f, result)
 
     def test_multiple_inline(self):
         def a(x):
@@ -243,12 +241,12 @@ class TestInline(PragmaTest):
         def b(x):
             return x + 2
 
-        @pragma.unroll(return_source=True)
+        @pragma.unroll
         @pragma.inline(a, b)
         def f(x):
             return a(x) + b(x)
 
-        result = dedent('''
+        result = '''
         def f(x):
             _a_0 = dict(x=x)
             _a_0['return'] = _a_0['x'] ** 2
@@ -259,8 +257,9 @@ class TestInline(PragmaTest):
             _b_return_0 = _b_0.get('return', None)
             del _b_0
             return _a_return_0 + _b_return_0
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
+
+        self.assertSourceEqual(f, result)
 
     def test_coverage(self):
         def g(y):
@@ -273,7 +272,7 @@ class TestInline(PragmaTest):
             except:
                 raise
 
-        print(pragma.inline(g, return_source=True)(f))
+        print(pragma.inline(g)(f))
         self.assertEqual(f(), pragma.inline(g)(f)())
 
     def test_bug_my_range(self):
@@ -288,7 +287,7 @@ class TestInline(PragmaTest):
         def test_my_range():
             return list(my_range(5))
 
-        result = dedent('''
+        result = '''
         def test_my_range():
             _my_range_0 = dict([('yield', [])], x=5)
             i = 0
@@ -298,7 +297,7 @@ class TestInline(PragmaTest):
             _my_range_return_0 = _my_range_0['yield']
             del _my_range_0
             return list(_my_range_return_0)
-        ''')
+        '''
 
         self.assertSourceEqual(test_my_range, result)
         self.assertEqual(test_my_range(), [0, 1, 2, 3, 4])
