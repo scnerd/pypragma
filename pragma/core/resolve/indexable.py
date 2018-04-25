@@ -44,6 +44,10 @@ def _resolve_indexable_binop(node, ctxt):
 @_log_call
 def _resolve_indexable_call(node, ctxt):
     func = resolve_literal(node.func, ctxt, True)
+    if func is dict:  # Handle the special case of dict(a=1, b=2, ...) with no positional arguments and no starargs
+        # TODO: Handle positional and starargs using resolve_iterable
+        if len(node.args) == 0 and not any(kw.arg is None for kw in node.keywords):
+            return dict(node.keywords)
     if isinstance(func, ast.AST):  # We don't even know what's being called
         raise TypeError("Unknown function, cannot evaluate")
     if func not in pure_functions:
