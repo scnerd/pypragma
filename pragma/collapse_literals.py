@@ -1,6 +1,6 @@
 import ast
 
-from .core import TrackedContextTransformer, make_function_transformer, primitive_types
+from .core import TrackedContextTransformer, make_function_transformer, primitive_ast_types
 import logging
 log = logging.getLogger(__name__)
 
@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 class CollapseTransformer(TrackedContextTransformer):
     def visit_Name(self, node):
         res = self.resolve_literal(node)
-        if isinstance(res, (ast.Num, ast.Str, ast.JoinedStr, ast.Bytes, ast.NameConstant, ast.Constant)):
+        if isinstance(res, primitive_ast_types):
             return res
         return node
 
