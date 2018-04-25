@@ -254,9 +254,9 @@ class TestUnroll(PragmaTest):
         def f():
             x = 3
             (y, x), z = (1, 2), 3
-            print(x)
-            print(x)
-            print(x)
+            print(2)
+            print(2)
+            print(2)
         ''')
         self.assertEqual(f.strip(), result.strip())
 
@@ -318,6 +318,7 @@ class TestUnroll(PragmaTest):
 
         result = '''
         def f():
+            lst = [g(1), 2, 3]
             print(g(1))
             print(2)
             print(3)

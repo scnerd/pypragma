@@ -113,11 +113,12 @@ def lift(return_source=False, save_source=True, annotate_types=False, defaults=F
                         return None
                 else:
                     return None
-                attempted = make_ast_from_literal(attempt)
-                if isinstance(attempted, ast.expr):
-                    return attempted
-                else:
-                    log.debug("Failed to convert {} to an AST expression (got {})".format(attempt, attempted))
+
+                try:
+                    res = make_ast_from_literal(attempt)
+                    assert isinstance(res, ast.expr)
+                except (TypeError, AssertionError):
+                    log.debug("Failed to convert {} to an AST expression".format(attempt))
                     return None
 
             return None

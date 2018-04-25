@@ -187,11 +187,15 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
                 self[name.id] = None
             else:
                 literal_val = self.resolve_literal(val)
-                if not isinstance(literal_val, ast.AST):  # a = 5
-                    self[name.id] = make_ast_from_literal(literal_val)
-                else:  # a = f(x)
-                    self[name.id] = make_ast_from_literal(self.resolve_iterable(val)) or val
-                    # self[name.id] = val
+                if isinstance(literal_val, ast.AST):
+                    self[name.id] = literal_val
+                else:
+                    iterable_val = self.resolve_iterable(val)
+                    if iterable_val is not None:
+                        self[name.id] = iterable_val
+                    else:
+                        indexable_val = self.resolve_indexable(val)
+                        self[name.id] = indexable_val
             yield name.id
 
         elif isinstance(name, ast.Attribute):  # a.x = ...
@@ -227,7 +231,10 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
             log.warning("Unhandled assignment of {} to {}".format(val, name))
 
     def assign(self, name, val):
-        return list(self._assign(name, val))
+        try:
+            return list(self._assign(name, val))
+        except TypeError:
+            log.debug("Failed to assign {}={}, rvalue cannot be converted to AST".format(name, val))
 
     def visit_Assign(self, node):
         node.value = self.visit(node.value)

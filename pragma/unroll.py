@@ -59,7 +59,12 @@ class UnrollTransformer(TrackedContextTransformer):
             # self.loop_vars = orig_loop_vars | {loop_var}
             # self.ctxt.push()
             # self.visit(ast.Assign(targets=(node.target,), value=make_ast_from_literal(val)))
-            self.loop_vars.append(set(self.assign(node.target, make_ast_from_literal(val))))
+            try:
+                val = make_ast_from_literal(val)
+            except TypeError:
+                log.debug("Failed to unroll loop, {} failed to convert to AST".format(val))
+                return self.generic_visit(node)
+            self.loop_vars.append(set(self.assign(node.target, val)))
             for body_node in copy.deepcopy(node.body):
                 res = self.visit(body_node)
                 if isinstance(res, list):

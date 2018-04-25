@@ -98,9 +98,9 @@ class TestDeindex(PragmaTest):
         # TODO: Support tuple assignment in loop transparently
 
         @pragma.deindex(funcs, 'funcs')
-        @pragma.unroll(lf=len(funcs))
+        @pragma.unroll
         def run_func(i, x):
-            for j in range(lf):
+            for j in range(len(funcs)):
                 if i == j:
                     return funcs[j](x)
 

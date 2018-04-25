@@ -51,7 +51,9 @@ def make_ast_from_literal(lit):
     :return: The AST version of the literal, or the original AST node if one was given
     :rtype: *
     """
-    if isinstance(lit, ast.AST):
+    if isinstance(lit, CollapsableNode):
+        return make_ast_from_literal(lit.node)
+    elif isinstance(lit, ast.AST):
         return lit
     elif isinstance(lit, (list, tuple)):
         res = [make_ast_from_literal(e) for e in lit]
@@ -70,11 +72,12 @@ def make_ast_from_literal(lit):
         return ast.Num(lit2)
     elif isinstance(lit, str):
         return ast.Str(lit)
-    elif isinstance(lit, bool):
+    elif isinstance(lit, (bool, type(None))):
         return ast.NameConstant(lit)
     else:
         # warnings.warn("'{}' of type {} is not able to be made into an AST node".format(lit, type(lit)))
-        return lit
+        # return lit
+        raise TypeError("'{}' of type {} is not able to be made into an AST node".format(lit, type(lit)))
 
 
 @_log_call
@@ -87,7 +90,11 @@ def is_wrappable(lit):
     :return: Whether or not this object can be wrapped as an AST node
     :rtype: bool
     """
-    return isinstance(make_ast_from_literal(lit), ast.AST)
+    try:
+        make_ast_from_literal(lit)
+        return True
+    except TypeError:
+        return False
 
 
 @_log_call
@@ -176,8 +183,10 @@ def resolve_literal_subscript(node, ctxt):
         slice = _resolve_literal(node.slice, ctxt)
         if not isinstance(slice, ast.AST):
             try:
-                indexable = {_resolve_literal(k, ctxt): v for k, v in indexable.items()}
-                return _resolve_literal(indexable[slice], ctxt)
+                if isinstance(indexable, dict):
+                    indexable = {_resolve_literal(k, ctxt): v for k, v in indexable.items()}
+                # return _resolve_literal(indexable[slice], ctxt)
+                return indexable[slice]
             except (KeyError, IndexError):
                 log.debug("Cannot index {}[{}]".format(indexable, slice))
                 return node
@@ -219,11 +228,10 @@ def resolve_literal_binop(node, ctxt):
                 " Error was:\n{}".format(traceback.format_exc()))
             return node
     else:
-        left = make_ast_from_literal(left)
-        left = left if isinstance(left, ast.AST) else node.left
+        # Get the best resolution of the left and right, as AST nodes
+        left = resolve_literal(node.left, ctxt)
+        right = resolve_literal(node.right, ctxt)
 
-        right = make_ast_from_literal(right)
-        right = right if isinstance(right, ast.AST) else node.right
         return ast.BinOp(left=left, right=right, op=node.op)
 
 
@@ -235,24 +243,6 @@ def resolve_literal_compare(node, ctxt):
                    for i, cmp_func in zip(range(1, len(operands)), node.ops))
     else:
         return node
-
-
-@_log_call
-def _resolve_args(args, ctxt):
-    return [
-        CollapsableNode(arg, ctxt)
-        for a_in in args
-        for arg in (a_in.value if isinstance(a_in, ast.Starred) else [a_in])
-    ]
-
-
-@_log_call
-def _resolve_keywords(keywords, ctxt):
-    kwargs = {kw.arg: CollapsableNode(kw.value, ctxt) for kw in keywords}
-    if None in kwargs:
-        kwargs.update(kwargs[None])
-        del kwargs[None]
-    return kwargs
 
 
 @_log_call
@@ -295,11 +285,12 @@ def resolve_literal(node, ctxt, give_raw_result=False):
     result = _resolve_literal(node, ctxt)
     if give_raw_result:
         return result
-    result = make_ast_from_literal(result)
-    if not isinstance(result, ast.AST):
+    try:
+        return make_ast_from_literal(result)
+    except TypeError:
+        log.debug("Failed to convert {} into AST".format(result))
         return node
-    return result
 
 
-from pragma.core.resolve import _collapse_map, num_types, float_types, resolve_name_or_attribute, pure_functions
+from pragma.core.resolve import _collapse_map, num_types, float_types, resolve_name_or_attribute, pure_functions, _resolve_args, _resolve_keywords
 from pragma.core.resolve.indexable import resolve_indexable

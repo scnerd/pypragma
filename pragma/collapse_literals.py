@@ -26,10 +26,14 @@ class CollapseTransformer(TrackedContextTransformer):
         return self.resolve_literal(self.generic_visit(node))
 
     def visit_Subscript(self, node):
-        return self.resolve_literal(self.generic_visit_less(node, 'value'))
+        return self.resolve_literal(self.generic_visit(node))
 
     def visit_Call(self, node):
-        return self.resolve_literal(self.generic_visit(node))
+        node = self.generic_visit(node)
+        try:
+            return self.resolve_literal(node)
+        except (AssertionError, TypeError, KeyError, IndexError):
+            return node
 
     def visit_If(self, node):
         cond = self.resolve_literal(node.test, raw=True)

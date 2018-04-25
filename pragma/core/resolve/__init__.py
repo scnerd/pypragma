@@ -7,12 +7,12 @@ import math
 import logging
 log = logging.getLogger(__name__)
 
-from pragma.core import _log_call, DictStack
+from pragma.core import _log_call, DictStack, _pretty_str
 
 import builtins
 import inspect
 _builtin_funcs = inspect.getmembers(builtins, lambda o: callable(o))
-pure_functions = {func for name, func in _builtin_funcs}
+pure_functions = {func for name, func in _builtin_funcs} - {print, delattr, exec, eval, input, open, setattr, super}
 
 @_log_call
 @magic_contract
@@ -27,13 +27,10 @@ def resolve_name_or_attribute(node, ctxt):
     :rtype: *
     """
     if isinstance(node, ast.Name):
-        if node.id in ctxt:
-            try:
-                return ctxt[node.id]
-            except KeyError:
-                log.debug("'{}' has been assigned to, but with an unknown value".format(node.id))
-                return node
-        else:
+        try:
+            return ctxt[node.id]
+        except KeyError:
+            log.debug("'{}' has been assigned to, but with an unknown value".format(node.id))
             return node
     elif isinstance(node, ast.NameConstant):
         return node.value
@@ -142,6 +139,12 @@ class CollapsableNode:
     def __init__(self, node, ctxt):
         self.node = node
         self.ctxt = ctxt
+
+    def __repr__(self):
+        return 'CollapsableNode({})'.format(_pretty_str(self.node))
+
+    def __format__(self, format_spec):
+        return repr(self)
 
     @property
     def as_literal(self):
@@ -264,6 +267,28 @@ class CollapsableNode:
     __trunc__ = make_unop(math.trunc)
     __floor__ = make_unop(math.floor)
     __ceil__ = make_unop(math.ceil)
+
+
+@_log_call
+def _resolve_args(args, ctxt):
+    return [
+        CollapsableNode(arg, ctxt)
+        for a_in in args
+        for arg in (a_in.value if isinstance(a_in, ast.Starred) else [a_in])
+    ]
+
+
+@_log_call
+def _resolve_keywords(keywords, ctxt):
+    kwargs = {kw.arg: CollapsableNode(kw.value, ctxt) for kw in keywords}
+    if None in kwargs:
+        kwargs.update(kwargs[None])
+        del kwargs[None]
+    return kwargs
+
+@_log_call
+def _try_collapse(op, ctxt, *args):
+    return _collapse_map[op](*[CollapsableNode(a, ctxt) for a in args])
 
 
 from .literal import resolve_literal, make_ast_from_literal
