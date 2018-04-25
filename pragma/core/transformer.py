@@ -273,7 +273,7 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
 
     def visit_FunctionDef(self, node):
         if not self.in_main_func:
-            self.ctxt.push({}, False)
+            self.ctxt.push({})
             node.body = self.nested_visit(node.body, set_conditional_exec=False)
             self.ctxt.pop()
             return self.generic_visit_less(node, 'body')

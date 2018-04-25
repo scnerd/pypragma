@@ -1,56 +1,45 @@
+from collections import ChainMap
+import builtins
+
+
 class DictStack:
     """
     Creates a stack of dictionaries to roughly emulate closures and variable environments
     """
 
     def __init__(self, *base):
-        import builtins
-        self.dicts = [dict(builtins.__dict__)] + [dict(d) for d in base]
-        self.constants = [True] + [False] * len(base)
+        self._dicts = ChainMap(builtins.__dict__)
+        for d in base:
+            self.push(d)
 
     def __iter__(self):
-        return (key for dct in self.dicts for key in dct.keys())
+        return iter(self._dicts)
 
     def __setitem__(self, key, value):
-        # print("SETTING {} = {}".format(key, value))
-        self.dicts[-1][key] = value
+        self._dicts[key] = value
 
     def __getitem__(self, item):
-        for dct in self.dicts[::-1]:
-            if item in dct:
-                if dct[item] is None:
-                    raise KeyError("Found '{}', but it was set to an unknown value".format(item))
-                return dct[item]
-        raise KeyError("Can't find '{}' anywhere in the function's context".format(item))
+        return self._dicts[item]
 
     def __delitem__(self, item):
-        for dct in self.dicts[::-1]:
-            if item in dct:
-                del dct[item]
-                return
-        raise KeyError()
+        del self._dicts[item]
 
     def __contains__(self, item):
-        return any(item == key for dct in self.dicts for key in dct.keys())
+        return item in self._dicts
 
     def items(self):
-        items = []
-        for dct in self.dicts[::-1]:
-            for k, v in dct.items():
-                if k not in items:
-                    items.append((k, v))
-        return items
+        return self._dicts.items()
 
     def keys(self):
-        return set().union(*[dct.keys() for dct in self.dicts])
+        return self._dicts.keys()
 
-    def push(self, dct=None, is_constant=False):
-        self.dicts.append(dct or {})
-        self.constants.append(is_constant)
+    def push(self, dct=None):
+        self._dicts = self._dicts.new_child(dct)
 
     def pop(self):
-        self.constants.pop()
-        return self.dicts.pop()
+        cur = self._dicts.maps[0]
+        self._dicts = self._dicts.parents
+        return cur
 
     def __repr__(self):
-        return "{{...{}...{}}}".format(len(self.dicts) - 1, self.dicts[-2:])
+        return repr(self._dicts)
