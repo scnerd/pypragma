@@ -1,6 +1,8 @@
 from collections import OrderedDict as odict
 
 from .core import *
+import logging
+log = logging.getLogger(__name__)
 
 # stmt = FunctionDef(identifier name, arguments args,
 #                        stmt* body, expr* decorator_list, expr? returns)
@@ -148,7 +150,7 @@ class InlineTransformer(TrackedContextTransformer):
         """When we see a function call, insert the function body into the current code block, then replace the call
         with the return expression """
         node = self.generic_visit(node)
-        node_fun = resolve_name_or_attribute(resolve_literal(node.func, self.ctxt), self.ctxt)
+        node_fun = self.resolve_name_or_attribute(self.resolve_literal(node.func))
 
         for (fun, fname, fsig, fbody) in self.funs:
             if fun != node_fun:
@@ -176,7 +178,7 @@ class InlineTransformer(TrackedContextTransformer):
             flattened_args = []
             for a in args:
                 if isinstance(a, ast.Starred):
-                    a = constant_iterable(a.value, self.ctxt)
+                    a = self.resolve_iterable(a.value)
                     if a:
                         flattened_args.extend(a)
                     else:

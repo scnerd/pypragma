@@ -1,16 +1,19 @@
-# import ast
+import ast
 import copy
-# import inspect
+import inspect
 import sys
 import tempfile
 import textwrap
-# import logging
+import logging
+import warnings
+log = logging.getLogger(__name__)
 
 import astor
 from miniutils.opt_decorator import optional_argument_decorator
+from miniutils import magic_contract
 
-from .resolve import *
-from .stack import DictStack
+from pragma.core.stack import DictStack
+from pragma.core.resolve import resolve_literal, resolve_iterable, resolve_indexable, resolve_name_or_attribute, make_ast_from_literal
 
 
 @magic_contract
@@ -34,7 +37,7 @@ def function_ast(f):
 class DebugTransformerMixin:  # pragma: nocover
     def visit(self, node):
         orig_node_code = astor.to_source(node).strip()
-        log.debug("Starting to visit >> {} <<".format(orig_node_code))
+        log.debug("Starting to visit >> {} << ({})".format(orig_node_code, type(node)))
 
         new_node = super().visit(node)
 
@@ -47,12 +50,13 @@ class DebugTransformerMixin:  # pragma: nocover
                 log.debug("Converted >>> {} <<< to [[[ {} ]]]".format(orig_node_code, ", ".join(
                     astor.to_source(n).strip() for n in new_node)))
         except Exception as ex:
-            raise AssertionError("Failed on {} >>> {}".format(orig_node_code, astor.dump_tree(new_node))) from ex
+            log.error("Failed on {} >>> {}".format(orig_node_code, astor.dump_tree(new_node)), exc_info=ex)
+            raise ex
 
         return new_node
 
 
-class TrackedContextTransformer(ast.NodeTransformer):
+class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
     def __init__(self, ctxt=None):
         super().__init__()
         self.ctxt = ctxt or DictStack()
@@ -87,18 +91,32 @@ class TrackedContextTransformer(ast.NodeTransformer):
         self.conditional_execution = was_conditional_exec
         return lst
 
-    def resolve_literal(self, node):
-        log.debug("Attempting to resolve {}".format(node))
-        resolution = resolve_literal(node, self.ctxt)
+    def resolve_literal(self, node, raw=False):
+        log.debug("Attempting to resolve {} as literal".format(node))
+        resolution = resolve_literal(node, self.ctxt, give_raw_result=raw)
         log.debug("Resolved {} to {}".format(node, resolution) if resolution is not node
-                  else "Failed to resolve {}".format(node))
+                  else "Failed to resolve {} as literal".format(node))
         return resolution
 
-    def constant_iterable(self, node):
+    def resolve_name_or_attribute(self, node):
+        log.debug("Attempting to resolve name/attr {}".format(node))
+        resolution = resolve_name_or_attribute(node, self.ctxt)
+        log.debug("Resolved {} to {}".format(node, resolution) if resolution is not node
+                  else "Failed to resolve name/attr {}".format(node))
+        return resolution
+
+    def resolve_iterable(self, node):
         log.debug("Attempting to resolve {} as iterable".format(node))
-        resolution = constant_iterable(node, self.ctxt)
+        resolution = resolve_iterable(node, self.ctxt)
         log.debug("Resolved {} to {}".format(node, resolution) if resolution is not None
                   else "Failed to resolve {} as iterable".format(node))
+        return resolution
+
+    def resolve_indexable(self, node):
+        log.debug("Attempting to resolve {} as indexable".format(node))
+        resolution = resolve_indexable(node, self.ctxt)
+        log.debug("Resolved {} to {}".format(node, resolution) if resolution is not None
+                  else "Failed to resolve {} as indexable".format(node))
         return resolution
 
     def generic_visit_less(self, node, *without):
@@ -145,35 +163,40 @@ class TrackedContextTransformer(ast.NodeTransformer):
             else:
                 names = name
             if len(names) == 1:
-                self._assign(names[0], val)
+                yield from self._assign(names[0], val)
             elif val is None or self.conditional_execution:  # Something above us failed, we have no idea what this value is getting assigned
                 for subname in names:
-                    self._assign(subname, None)
+                    yield from self._assign(subname, None)
             else:
-                iterable_val = self.constant_iterable(val)
+                iterable_val = self.resolve_iterable(val)
                 if iterable_val is not None:  # (a, b) = 1, 2
                     iterable_val = iter(iterable_val)
                     try:
                         for subname in names:
                             if isinstance(subname, ast.Starred):  # (a, _*b_) = 1, _2, 3_
-                                self._assign(subname.value, list(iterable_val))
+                                yield from self._assign(subname.value, list(iterable_val))
                             else:  # (_a_, b) = _1_, 2
-                                self._assign(subname, next(iterable_val))
+                                yield from self._assign(subname, next(iterable_val))
                     except StopIteration:
                         raise IndexError("Failed to unpack {} into {}, either had too few elements or values after a starred variable".format(val, name))
                 else:
-                    self._assign(name, None)
+                    yield from self._assign(name, None)
 
         elif isinstance(name, ast.Name):  # a = ...
             if val is None or self.conditional_execution:  # a = ???
                 self[name.id] = None
             else:
                 literal_val = self.resolve_literal(val)
-                if not isinstance(literal_val, ast.AST):  # a = 5
-                    self[name.id] = make_ast_from_literal(literal_val)
-                else:  # a = f(x)
-                    self[name.id] = make_ast_from_literal(self.constant_iterable(val)) or val
-                    # self[name.id] = val
+                if isinstance(literal_val, ast.AST):
+                    self[name.id] = literal_val
+                else:
+                    iterable_val = self.resolve_iterable(val)
+                    if iterable_val is not None:
+                        self[name.id] = iterable_val
+                    else:
+                        indexable_val = self.resolve_indexable(val)
+                        self[name.id] = indexable_val
+            yield name.id
 
         elif isinstance(name, ast.Attribute):  # a.x = ...
             log.debug("Can't handle assignment to attributes yet")
@@ -182,10 +205,10 @@ class TrackedContextTransformer(ast.NodeTransformer):
             arr = name.value
             if val is None or self.conditional_execution:  # a[i] = ???
                 log.debug("Partial assignment to an iterable is not yet supported, killing entire iterable")
-                self._assign(arr, None)
+                yield from self._assign(arr, None)
             elif isinstance(arr, ast.Name):  # a[i] = ...
                 idx = name.slice
-                cur_iterable = self.constant_iterable(arr)
+                cur_iterable = self.resolve_iterable(arr)
                 if cur_iterable is not None:  # a[i] = ... where a = [1,2,3]
                     literal_idx = self.resolve_literal(idx)
                     if not isinstance(literal_idx, ast.AST):  # a[i] = ... where a = [1,2,3], i =
@@ -200,15 +223,22 @@ class TrackedContextTransformer(ast.NodeTransformer):
                         self[arr.id] = None
                 else:  # ???[i] = val
                     self[arr.id] = None
+                yield arr.id
             else:  # a.x[i] = val, or f(x)[i] = val
                 log.debug("Can't handle assignment to subscript of non-variables yet")
 
         else:  # wtf?
             log.warning("Unhandled assignment of {} to {}".format(val, name))
 
+    def assign(self, name, val):
+        try:
+            return list(self._assign(name, val))
+        except TypeError:
+            log.debug("Failed to assign {}={}, rvalue cannot be converted to AST".format(name, val))
+
     def visit_Assign(self, node):
         node.value = self.visit(node.value)
-        self._assign(node.targets, node.value)
+        self.assign(node.targets, node.value)
         return node
 
     def visit_AugAssign(self, node):
@@ -216,9 +246,9 @@ class TrackedContextTransformer(ast.NodeTransformer):
         node.value = self.visit(node.value)
         new_val = self.resolve_literal(ast.BinOp(op=node.op, left=node.target, right=node.value))
         if not isinstance(new_val, ast.BinOp):
-            self._assign(node.target, new_val)
+            self.assign(node.target, new_val)
         else:
-            self._assign(node.target, None)
+            self.assign(node.target, None)
         return node
 
     def _delete(self, node):

@@ -10,14 +10,14 @@ log = logging.getLogger(__name__.split('.')[0])
 
 
 def _is_iterable(x):
-    try:
-        iter(x)
-        return True
-    except Exception:
-        return False
+    return hasattr(x, '__iter__')
+
+def _is_indexable(x):
+    return hasattr(x, '__getitem__')
 
 
 safe_new_contract('iterable', _is_iterable)
+safe_new_contract('indexable', _is_indexable)
 safe_new_contract('literal', 'int|float|str|bool|tuple|list|None')
 for name, tp in inspect.getmembers(ast, inspect.isclass):
     safe_new_contract(name, tp)
@@ -37,29 +37,56 @@ def _pretty_str(o):
     if isinstance(o, ast.AST):
         if isinstance(o, ast.Name):
             return o.id
-        if isinstance(o, ast.Call):
-            return _pretty_str(o.func)
-        if isinstance(o, ast.Attribute):
+        elif isinstance(o, ast.Call):
+            return "{}(...)".format(_pretty_str(o.func))
+        elif isinstance(o, ast.Attribute):
             return "{}.{}".format(_pretty_str(o.value), o.attr)
 
         return astor.to_source(o).strip()
     else:
-        return str(o)
+        return repr(o)
+
+
+_log_call_depth = 0
 
 
 def _log_call(f):
     @functools.wraps(f)
     def inner(*args, **kwargs):
-        result = f(*args, **kwargs)
-        log.debug("{}({}) -> {}".format(
+        global _log_call_depth
+
+        result = None
+        ex = None
+        log.debug("START {}{}({})".format(
+            ' ' * _log_call_depth,
             f.__name__,
             ', '.join(
                 [_pretty_str(a) for a in args] +
                 ["{}={}".format(_pretty_str(k), _pretty_str(v)) for k, v in kwargs.items()]
-            ),
-            result
+            )
         ))
-        return result
+
+        _log_call_depth += 1
+        try:
+            result = f(*args, **kwargs)
+            return result
+
+        except Exception as e:
+            ex = e
+            raise e
+        finally:
+            _log_call_depth -= 1
+
+            log.debug("END   {}{}({}) -> {}".format(
+                ' ' * _log_call_depth,
+                f.__name__,
+                ', '.join(
+                    [_pretty_str(a) for a in args] +
+                    ["{}={}".format(_pretty_str(k), _pretty_str(v)) for k, v in kwargs.items()]
+                ),
+                _pretty_str(result)
+            ), exc_info=ex)
+
     return inner
 
 

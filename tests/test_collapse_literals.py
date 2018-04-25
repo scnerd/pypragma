@@ -69,17 +69,18 @@ class TestCollapseLiterals(PragmaTest):
         self.assertEqual(f.strip(), result.strip())
 
     def test_constant_index(self):
-        @pragma.collapse_literals(return_source=True)
+        @pragma.collapse_literals
         def f():
-            x = [1,2,3]
+            x = [1, 2, 3]
             return x[0]
 
-        result = dedent('''
+        result = '''
         def f():
             x = [1, 2, 3]
             return 1
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(), 1)
 
     def test_with_unroll(self):
         @pragma.collapse_literals(return_source=True)
@@ -96,18 +97,19 @@ class TestCollapseLiterals(PragmaTest):
         ''')
         self.assertEqual(f.strip(), result.strip())
 
-    def test_with_objects(self):
-        @pragma.collapse_literals(return_source=True)
-        def f():
-            v = [object(), object()]
-            return v[0]
-
-        result = dedent('''
-        def f():
-            v = [object(), object()]
-            return v[0]
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+    # # TODO: Figure out variable levels of specificity...
+    # def test_with_objects(self):
+    #     @pragma.collapse_literals(return_source=True)
+    #     def f():
+    #         v = [object(), object()]
+    #         return v[0]
+    #
+    #     result = dedent('''
+    #     def f():
+    #         v = [object(), object()]
+    #         return v[0]
+    #     ''')
+    #     self.assertEqual(f.strip(), result.strip())
 
     def test_invalid_collapse(self):
         import warnings
@@ -128,21 +130,24 @@ class TestCollapseLiterals(PragmaTest):
             self.assertIsInstance(w[-1].category(), UserWarning)
 
     def test_conditional_erasure(self):
-        @pragma.collapse_literals(return_source=True)
+        @pragma.collapse_literals
         def f(y):
             x = 0
             if y == x:
                 x = 1
             return x
 
-        result = dedent('''
+        result = '''
         def f(y):
             x = 0
             if y == 0:
                 x = 1
             return x
-        ''')
+        '''
+
         self.assertSourceEqual(f, result)
+        self.assertEqual(f(0), 1)
+        self.assertEqual(f(1), 0)
 
     # # TODO: Implement the features to get this test to pass
     # def test_conditional_partial_erasure(self):
@@ -233,15 +238,17 @@ class TestCollapseLiterals(PragmaTest):
     def test_funcs2(self):
         my_list = [1, 2, 3]
 
-        @pragma.collapse_literals(return_source=True)
+        @pragma.collapse_literals
         def f(x):
             return x + sum([sum(my_list), min(my_list), max(my_list)])
 
-        result = dedent('''
+        result = '''
         def f(x):
             return x + 10
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(5), 15)
 
     # # Implement the functionality to get this test to pass
     # def test_assign_to_iterable(self):
@@ -257,3 +264,75 @@ class TestCollapseLiterals(PragmaTest):
     #         x[1] = 4
     #         return 4
     #     ''')
+
+    def test_tuple_assign(self):
+        @pragma.collapse_literals
+        def f():
+            x = 3
+            ((y, x), z) = ((1, 2), 3)
+            return x
+
+        result = dedent('''
+        def f():
+            x = 3
+            (y, x), z = (1, 2), 3
+            return 2
+        ''')
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(), 2)
+
+    def test_simple_functions(self):
+        a = [1, 2, 3, 4]
+
+        @pragma.collapse_literals
+        def f():
+            print(len(a))
+            print(sum(a))
+            print(a)
+
+        result = '''
+        def f():
+            print(4)
+            print(10)
+            print(a)
+        '''
+
+        self.assertSourceEqual(f, result)
+
+    def test_reduction(self):
+        a = [1, 2, 3]
+
+        @pragma.collapse_literals
+        def f():
+            b = a
+            c = b
+            d = c
+            e = d
+            print(e)
+            print(e[0])
+
+        result = '''
+        def f():
+            b = a
+            c = b
+            d = c
+            e = d
+            print(e)
+            print(1)
+        '''
+
+        self.assertSourceEqual(f, result)
+
+    def test_odd_binop(self):
+        @pragma.collapse_literals
+        def f():
+            l = [[0]] * 5
+            print(l[4][0])
+
+        result = '''
+        def f():
+            l = [[0], [0], [0], [0], [0]]
+            print(0)
+        '''
+
+        self.assertSourceEqual(f, result)

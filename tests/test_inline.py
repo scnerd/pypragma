@@ -9,11 +9,11 @@ class TestInline(PragmaTest):
         def g(x):
             return x**2
 
-        @pragma.inline(g, return_source=True)
+        @pragma.inline(g)
         def f(y):
             return g(y + 3)
 
-        result = dedent('''
+        result = '''
         def f(y):
             _g_0 = dict(x=y + 3)
             for ____ in [None]:
@@ -22,37 +22,31 @@ class TestInline(PragmaTest):
             _g_return_0 = _g_0.get('return', None)
             del _g_0
             return _g_return_0
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
 
-    def test_basic_run(self):
-        def g(x):
-            return x**2
-
-        @pragma.inline(g)
-        def f(y):
-            return g(y + 3)
-
+        self.assertSourceEqual(f, result)
         self.assertEqual(f(1), ((1 + 3) ** 2))
 
     def test_basic_unroll(self):
         def g(x):
             return x**2
 
-        @pragma.unroll(return_source=True)
+        @pragma.unroll
         @pragma.inline(g)
         def f(y):
             return g(y + 3)
 
-        result = dedent('''
+        result = '''
         def f(y):
             _g_0 = dict(x=y + 3)
             _g_0['return'] = _g_0['x'] ** 2
             _g_return_0 = _g_0.get('return', None)
             del _g_0
             return _g_return_0
-        ''')
-        self.assertEqual(f.strip(), result.strip())
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(1), ((1 + 3) ** 2))
 
     def test_more_complex(self):
         def g(x, *args, y, **kwargs):
