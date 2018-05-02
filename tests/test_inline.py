@@ -185,7 +185,7 @@ class TestInline(PragmaTest):
             _g_0 = dict([('yield', [])], y=x)
             try:
                 for _g_0['i'] in range(_g_0['y']):
-                    _g_0['yield'].append(i)
+                    _g_0['yield'].append(_g_0['i'])
                 _g_0['yield'].extend(range(_g_0['y']))
             finally:
                 _g_return_0 = _g_0['yield']
@@ -194,6 +194,7 @@ class TestInline(PragmaTest):
         '''
 
         self.assertSourceEqual(f, result)
+        self.assertEqual(f(3), 6)
 
     def test_variable_starargs(self):
         def g(a, b, c):
@@ -282,4 +283,35 @@ class TestInline(PragmaTest):
 
         self.assertSourceEqual(test_my_range, result)
         self.assertEqual(test_my_range(), [0, 1, 2, 3, 4])
+
+    def test_return_inside_loop(self):
+        def g(x):
+            for i in range(x + 1):
+                if i == x:
+                    return i
+            return None
+
+        @pragma.inline(g)
+        def f(y):
+            return g(y + 2)
+
+        result = '''
+        def f(y):
+            _g_0 = dict(x=y + 2)
+            try:
+                for _g_0['i'] in range(_g_0['x'] + 1):
+                    if i == _g_0['x']:
+                        raise _PRAGMA_INLINE_RETURN(i)
+                raise _PRAGMA_INLINE_RETURN(None)
+            except _PRAGMA_INLINE_RETURN as _g_return_0:
+                _g_return_0 = _g_return_0.return_val
+            else:
+                _g_return_0 = None
+            finally:
+                del _g_0
+            return _g_return_0
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(3), 5)
 
