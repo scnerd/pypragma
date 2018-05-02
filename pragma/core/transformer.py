@@ -237,11 +237,12 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
             log.debug("Failed to assign {}={}, rvalue cannot be converted to AST".format(name, val))
 
     def visit_Assign(self, node):
-        node.value = self.visit(node.value)
+        node = self.generic_visit(node)
         self.assign(node.targets, node.value)
         return node
 
     def visit_AugAssign(self, node):
+        node.target = self.visit(node.target)
         node = copy.deepcopy(node)
         node.value = self.visit(node.value)
         new_val = self.resolve_literal(ast.BinOp(op=node.op, left=node.target, right=node.value))

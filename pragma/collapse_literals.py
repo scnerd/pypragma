@@ -8,9 +8,10 @@ log = logging.getLogger(__name__)
 # noinspection PyPep8Naming
 class CollapseTransformer(TrackedContextTransformer):
     def visit_Name(self, node):
-        res = self.resolve_literal(node)
-        if isinstance(res, primitive_ast_types):
-            return res
+        if isinstance(node.ctx, ast.Load):
+            res = self.resolve_literal(node)
+            if isinstance(res, primitive_ast_types):
+                return res
         return node
 
     def visit_BinOp(self, node):

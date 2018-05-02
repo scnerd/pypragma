@@ -46,6 +46,13 @@ log = logging.getLogger(__name__)
 #           -- col_offset is the byte offset in the utf8 string the parser uses
 #           attributes (int lineno, int col_offset)
 
+
+class _PRAGMA_INLINE_RETURN(BaseException):
+    def __init__(self, val=None):
+        super().__init__()
+        self.return_val = val
+
+
 DICT_FMT = "_{fname}_{n}"
 
 
@@ -75,35 +82,63 @@ class _InlineBodyTransformer(TrackedContextTransformer):
     def __init__(self, func_name, param_names, n):
         self.func_name = func_name
         # print("Func {} takes parameters {}".format(func_name, param_names))
-        self.param_names = param_names
+        self.local_names = set(param_names)
+        self.nonlocal_names = set()
         self.in_break_block = False
         self.n = n
         self.had_return = False
         self.had_yield = False
         super().__init__()
 
+    def __setitem__(self, key, value):
+        self.local_names.add(key)
+        super().__setitem__(key, value)
+
+    def visit_Global(self, node):
+        self.nonlocal_names |= node.names
+        self.local_names -= node.names
+        return self.generic_visit(node)
+
+    def visit_Nonlocal(self, node):
+        self.nonlocal_names |= node.names
+        self.local_names -= node.names
+        return self.generic_visit(node)
+
     def visit_Name(self, node):
         # Check if this is a parameter, and hasn't had another value assigned to it
-        if node.id in self.param_names:
-            # print("Found parameter reference {}".format(node.id))
-            if node.id not in self.ctxt:
-                # If so, get its value from the argument dictionary
-                return make_name(self.func_name, node.id, self.n, ctx=type(getattr(node, 'ctx', ast.Load())))
-            else:
-                # print("But it's been overwritten to {} = {}".format(node.id, self.ctxt[node.id]))
-                pass
+        # if node.id in self.param_names:
+        #     # print("Found parameter reference {}".format(node.id))
+        #     if node.id not in self.ctxt:
+        #         # If so, get its value from the argument dictionary
+        #         return make_name(self.func_name, node.id, self.n, ctx=type(getattr(node, 'ctx', ast.Load())))
+        #     else:
+        #         # print("But it's been overwritten to {} = {}".format(node.id, self.ctxt[node.id]))
+        #         pass
+        # return node
+        if isinstance(node.ctx, ast.Store) and node.id not in self.nonlocal_names:
+            self.local_names.add(node.id)
+
+        if node.id in self.local_names:
+            return make_name(self.func_name, node.id, self.n, ctx=type(getattr(node, 'ctx', ast.Load())))
         return node
 
     def visit_Return(self, node):
-        if self.in_break_block:
-            raise NotImplementedError("miniutils.pragma.inline cannot handle returns from within a loop")
-        result = []
-        if node.value:
-            result.append(ast.Assign(targets=[make_name(self.func_name, 'return', self.n, ctx=ast.Store)],
-                                     value=self.visit(node.value)))
-        result.append(ast.Break())
+        # if self.in_break_block:
+        #     raise NotImplementedError("miniutils.pragma.inline cannot handle returns from within a loop")
+        # result = []
+        # if node.value:
+        #     result.append(ast.Assign(targets=[make_name(self.func_name, 'return', self.n, ctx=ast.Store)],
+        #                              value=self.visit(node.value)))
+        # result.append(ast.Break())
         self.had_return = True
-        return result
+        return ast.Raise(
+            exc=ast.Call(
+                func=ast.Name(id=_PRAGMA_INLINE_RETURN.__name__, ctx=ast.Load()),
+                args=[node.value] if node.value is not None else [],
+                keywords=[]
+            ),
+            cause=None
+        )
 
     def visit_Yield(self, node):
         self.had_yield = True
@@ -149,6 +184,7 @@ class InlineTransformer(TrackedContextTransformer):
     def visit_Call(self, node):
         """When we see a function call, insert the function body into the current code block, then replace the call
         with the return expression """
+
         node = self.generic_visit(node)
         node_fun = self.resolve_name_or_attribute(self.resolve_literal(node.func))
 
@@ -234,45 +270,59 @@ class InlineTransformer(TrackedContextTransformer):
             # Inline function code
             new_body = list(self.visit_many(fbody))
 
-            # cur_block.append(self.visit(ast.For(target=ast.Name(id='____', ctx=ast.Store()),
-            #                                     iter=ast.List(elts=[ast.NameConstant(None)], ctx=ast.Load()),
-            #                                     body=new_body,
-            #                                     orelse=[])))
-            cur_block.append(ast.For(target=ast.Name(id='____', ctx=ast.Store()),
-                                     iter=ast.List(elts=[ast.NameConstant(None)], ctx=ast.Load()),
-                                     body=new_body,
-                                     orelse=[]))
-
-            # fun_name['return']
-            if func_for_inlining.had_yield or func_for_inlining.had_return:
-                for j in range(100000):
-                    output_name = DICT_FMT.format(fname=fname + '_return', n=j)
-                    if output_name not in self.ctxt:
-                        break
-                else:
-                    raise RuntimeError("Function {} called and returned too many times during inlining, not able to "
-                                       "put the return value into a uniquely named variable".format(fname))
-
-                if func_for_inlining.had_yield:
-                    cur_block.append(self.visit(ast.Assign(targets=[ast.Name(id=output_name, ctx=ast.Store())],
-                                                           value=make_name(fname, 'yield', n))))
-                elif func_for_inlining.had_return:
-                    get_call = ast.Call(
-                        func=ast.Attribute(
-                            value=ast.Name(id=args_dict_name, ctx=ast.Load()),
-                            attr='get',
-                            ctx=ast.Load()),
-                        args=[ast.Str('return'), ast.NameConstant(None)],
-                        keywords=[]
-                    )
-                    cur_block.append(self.visit(ast.Assign(targets=[ast.Name(id=output_name, ctx=ast.Store())],
-                                                           value=get_call)))
-
-                return_node = ast.Name(id=output_name, ctx=ast.Load())
+            for j in range(100000):
+                output_name = DICT_FMT.format(fname=fname + '_return', n=j)
+                if output_name not in self.ctxt:
+                    break
             else:
-                return_node = ast.NameConstant(None)
+                raise RuntimeError("Function {} called and returned too many times during inlining, not able to "
+                                   "put the return value into a uniquely named variable".format(fname))
 
-            cur_block.append(self.visit(ast.Delete(targets=[ast.Name(id=args_dict_name, ctx=ast.Del())])))
+            return_node = ast.Name(id=output_name, ctx=ast.Load())
+
+            if func_for_inlining.had_yield:
+                afterwards_body = ast.Assign(targets=[ast.Name(id=output_name, ctx=ast.Store())],
+                                             value=make_name(fname, 'yield', n))
+            elif func_for_inlining.had_return:
+                afterwards_body = ast.Assign(targets=[ast.Name(id=output_name, ctx=ast.Store())],
+                                             value=ast.Attribute(
+                                                 value=ast.Name(id=output_name, ctx=ast.Load()),
+                                                 attr='return_val',
+                                                 ctx=ast.Load()
+                                             ))
+            else:
+                afterwards_body = []
+
+            self.visit(afterwards_body)
+            afterwards_body = [afterwards_body] if isinstance(afterwards_body, ast.AST) else afterwards_body
+
+            if func_for_inlining.had_return:
+                cur_block.append(ast.Try(
+                    body=new_body,
+                    handlers=[ast.ExceptHandler(
+                        type=ast.Name(id=_PRAGMA_INLINE_RETURN.__name__, ctx=ast.Load()),
+                        name=output_name,
+                        body=afterwards_body
+                    )],
+                    orelse=afterwards_body if func_for_inlining.had_yield else [
+                        self.visit(ast.Assign(targets=[ast.Name(id=output_name, ctx=ast.Store())],
+                                              value=ast.NameConstant(None)))
+                    ],
+                    finalbody=[
+                        self.visit(ast.Delete(targets=[ast.Name(id=args_dict_name, ctx=ast.Del())]))
+                    ]
+                ))
+            else:
+                cur_block.append(ast.Try(
+                    body=new_body,
+                    handlers=[],
+                    orelse=[],
+                    finalbody=afterwards_body + [
+                        self.visit(ast.Delete(targets=[ast.Name(id=args_dict_name, ctx=ast.Del())]))
+                    ]
+                ))
+
+
             return return_node
 
         else:
@@ -297,7 +347,10 @@ def inline(*funs_to_inline, max_depth=1, **kwargs):
 
         funs.append((fun_to_inline, fname, fsig, fbody))
 
+    # kwargs['function_globals'] = kwargs.get('function_globals', {}).update(_PRAGMA_INLINE_RETURN=_PRAGMA_INLINE_RETURN)
+    kwargs[_PRAGMA_INLINE_RETURN.__name__] = _PRAGMA_INLINE_RETURN
     return make_function_transformer(InlineTransformer,
                                      'inline',
                                      'Inline the specified function within the decorated function',
-                                     funs=funs, max_depth=max_depth)(**kwargs)
+                                     funs=funs,
+                                     max_depth=max_depth)(**kwargs)

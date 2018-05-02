@@ -69,3 +69,4 @@ When inlining a generator function, the function's results are collapsed into a 
 In general, either this won't be an issue, or you should know better than to try to inline the infinite generator.
 
 .. todo:: Support inlining a generator into another generator by merging the functions together. E.g., ``for x in my_range(5): yield x + 2`` becomes ``i = 0; while i < 5: yield i + 2; i += 1`` (or something vaguely like that).
+.. todo:: Support inlining closures; if the inlined function refers to global or nonlocal variables, import them into the closure of the final function.

@@ -16,32 +16,14 @@ class TestInline(PragmaTest):
         result = '''
         def f(y):
             _g_0 = dict(x=y + 3)
-            for ____ in [None]:
-                _g_0['return'] = _g_0['x'] ** 2
-                break
-            _g_return_0 = _g_0.get('return', None)
-            del _g_0
-            return _g_return_0
-        '''
-
-        self.assertSourceEqual(f, result)
-        self.assertEqual(f(1), ((1 + 3) ** 2))
-
-    def test_basic_unroll(self):
-        def g(x):
-            return x**2
-
-        @pragma.unroll
-        @pragma.inline(g)
-        def f(y):
-            return g(y + 3)
-
-        result = '''
-        def f(y):
-            _g_0 = dict(x=y + 3)
-            _g_0['return'] = _g_0['x'] ** 2
-            _g_return_0 = _g_0.get('return', None)
-            del _g_0
+            try:
+                raise _PRAGMA_INLINE_RETURN(x ** 2)
+            except _PRAGMA_INLINE_RETURN as _g_return_0:
+                _g_return_0 = _g_return_0.return_val
+            else:
+                _g_return_0 = None
+            finally:
+                del _g_0
             return _g_return_0
         '''
 
@@ -144,30 +126,18 @@ class TestInline(PragmaTest):
             if y <= 0:
                 return 0
             _g_0 = dict(x=y - 1)
-            for ____ in [None]:
-                _g_0['return'] = f(_g_0['x'] / 2)
-                break
-            _g_return_0 = _g_0.get('return', None)
-            del _g_0
+            try:
+                raise _PRAGMA_INLINE_RETURN(f(x / 2))
+            except _PRAGMA_INLINE_RETURN as _g_return_0:
+                _g_return_0 = _g_return_0.return_val
+            else:
+                _g_return_0 = None
+            finally:
+                del _g_0
             return _g_return_0
         '''
 
         self.assertSourceEqual(f_code, result)
-
-        f_unroll_code = pragma.unroll(pragma.inline(g)(f))
-
-        result_unroll = '''
-        def f(y):
-            if y <= 0:
-                return 0
-            _g_0 = dict(x=y - 1)
-            _g_0['return'] = f(_g_0['x'] / 2)
-            _g_return_0 = _g_0.get('return', None)
-            del _g_0
-            return _g_return_0
-        '''
-
-        self.assertSourceEqual(f_unroll_code, result_unroll)
 
         f2_code = pragma.inline(f, g, f=f)(f)
 
@@ -176,20 +146,25 @@ class TestInline(PragmaTest):
             if y <= 0:
                 return 0
             _g_0 = dict(x=y - 1)
-            _f_0 = dict(y=_g_0['x'] / 2)
-            for ____ in [None]:
+            _f_0 = dict(y=x / 2)
+            try:
                 if _f_0['y'] <= 0:
-                    _f_0['return'] = 0
-                    break
-                _f_0['return'] = g(_f_0['y'] - 1)
-                break
-            _f_return_0 = _f_0.get('return', None)
-            del _f_0
-            for ____ in [None]:
-                _g_0['return'] = _f_return_0
-                break
-            _g_return_0 = _g_0.get('return', None)
-            del _g_0
+                    raise _PRAGMA_INLINE_RETURN(0)
+                raise _PRAGMA_INLINE_RETURN(g(y - 1))
+            except _PRAGMA_INLINE_RETURN as _f_return_0:
+                _f_return_0 = _f_return_0.return_val
+            else:
+                _f_return_0 = None
+            finally:
+                del _f_0
+            try:
+                raise _PRAGMA_INLINE_RETURN(_f_return_0)
+            except _PRAGMA_INLINE_RETURN as _g_return_0:
+                _g_return_0 = _g_return_0.return_val
+            else:
+                _g_return_0 = None
+            finally:
+                del _g_0
             return _g_return_0
         ''')
 
@@ -208,12 +183,13 @@ class TestInline(PragmaTest):
         result = '''
         def f(x):
             _g_0 = dict([('yield', [])], y=x)
-            for ____ in [None]:
-                for i in range(_g_0['y']):
+            try:
+                for _g_0['i'] in range(_g_0['y']):
                     _g_0['yield'].append(i)
                 _g_0['yield'].extend(range(_g_0['y']))
-            _g_return_0 = _g_0['yield']
-            del _g_0
+            finally:
+                _g_return_0 = _g_0['yield']
+                del _g_0
             return sum(_g_return_0)
         '''
 
@@ -290,12 +266,17 @@ class TestInline(PragmaTest):
         result = '''
         def test_my_range():
             _my_range_0 = dict([('yield', [])], x=5)
-            i = 0
-            while i < _my_range_0['x']:
-                _my_range_0['yield'].append(i)
-                i += 1
-            _my_range_return_0 = _my_range_0['yield']
-            del _my_range_0
+            try:
+                _my_range_0['i'] = 0
+                while _my_range_0['i'] < _my_range_0['x']:
+                    _my_range_0['yield'].append(_my_range_0['i'])
+                    _my_range_0['i'] += 1
+            except _PRAGMA_INLINE_RETURN as _my_range_return_0:
+                _my_range_return_0 = _my_range_0['yield']
+            else:
+                _my_range_return_0 = _my_range_0['yield']
+            finally:
+                del _my_range_0
             return list(_my_range_return_0)
         '''
 
