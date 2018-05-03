@@ -70,3 +70,4 @@ If the branch is constant, and thus known at decoration time, then this flaw won
 .. todo:: Support sets?
 .. todo:: Always commit changes within a block, and only mark values as non-deterministic outside of conditional blocks
 .. todo:: Support list/set/dict comprehensions
+.. todo:: Support known elements of format strings (JoinedStr) in python 3.6+

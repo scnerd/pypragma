@@ -36,7 +36,11 @@ def function_ast(f):
 
 class DebugTransformerMixin:  # pragma: nocover
     def visit(self, node):
-        orig_node_code = astor.to_source(node).strip()
+        try:
+            orig_node_code = astor.to_source(node).strip()
+        except Exception as ex:
+            log.error("{} ({})".format(type(node), astor.dump_tree(node)), exc_info=ex)
+            raise ex
         log.debug("Starting to visit >> {} << ({})".format(orig_node_code, type(node)))
 
         new_node = super().visit(node)
