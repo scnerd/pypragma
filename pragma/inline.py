@@ -65,7 +65,7 @@ def make_name(fname, var, n, ctx=ast.Load):
     :param var: Argument name
     :type var: str
     :param ctx: Context of this name (LOAD or STORE)
-    :type ctx: Load|Store
+    :type ctx: type
     :param n: The number to append to this name (to allow for finite recursion)
     :type n: int
     :param fmt: Name format (if not stored in a dictionary)
@@ -81,7 +81,6 @@ def make_name(fname, var, n, ctx=ast.Load):
 class _InlineBodyTransformer(TrackedContextTransformer):
     def __init__(self, func_name, param_names, n):
         self.func_name = func_name
-        # print("Func {} takes parameters {}".format(func_name, param_names))
         self.param_names = list(param_names)
         self.local_names = set(param_names)
         self.nonlocal_names = set()
@@ -106,16 +105,6 @@ class _InlineBodyTransformer(TrackedContextTransformer):
         return self.generic_visit(node)
 
     def visit_Name(self, node):
-        # Check if this is a parameter, and hasn't had another value assigned to it
-        # if node.id in self.param_names:
-        #     # print("Found parameter reference {}".format(node.id))
-        #     if node.id not in self.ctxt:
-        #         # If so, get its value from the argument dictionary
-        #         return make_name(self.func_name, node.id, self.n, ctx=type(getattr(node, 'ctx', ast.Load())))
-        #     else:
-        #         # print("But it's been overwritten to {} = {}".format(node.id, self.ctxt[node.id]))
-        #         pass
-        # return node
         if isinstance(node.ctx, ast.Store) and node.id not in self.nonlocal_names:
             self.local_names.add(node.id)
 
@@ -125,13 +114,6 @@ class _InlineBodyTransformer(TrackedContextTransformer):
         return node
 
     def visit_Return(self, node):
-        # if self.in_break_block:
-        #     raise NotImplementedError("miniutils.pragma.inline cannot handle returns from within a loop")
-        # result = []
-        # if node.value:
-        #     result.append(ast.Assign(targets=[make_name(self.func_name, 'return', self.n, ctx=ast.Store)],
-        #                              value=self.visit(node.value)))
-        # result.append(ast.Break())
         self.had_return = True
         return ast.Raise(
             exc=ast.Call(
@@ -343,7 +325,6 @@ def inline(*funs_to_inline, max_depth=1, **kwargs):
 
     kwargs['function_globals'] = kwargs.get('function_globals', {})
     kwargs['function_globals'].update({_PRAGMA_INLINE_RETURN.__name__: _PRAGMA_INLINE_RETURN})
-    # kwargs[_PRAGMA_INLINE_RETURN.__name__] = _PRAGMA_INLINE_RETURN
     return make_function_transformer(InlineTransformer,
                                      'inline',
                                      'Inline the specified function within the decorated function',

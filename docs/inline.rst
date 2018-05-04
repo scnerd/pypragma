@@ -27,44 +27,27 @@ To inline a function ``f`` into the code of another function ``g``, use ``pragma
 
     def g(y):
         z = y + 3
-        _f = dict(x=z * 4)  # Store arguments
-        for ____ in [None]:  # Function body
-            _f['return'] = _f['x'] ** 2  # Store the "return"ed value
-            break  # Return, terminate the function body
-        _f_return = _f.get('return', None)  # Retrieve the returned value
-        del _f  # Discard everything else
-        return _f_return
-
-This loop can be removed, if it's not necessary, using :func:``pragma.unroll``. This can be accomplished if there are no returns within a conditional or loop block. In this case::
-
-    def f(x):
-        return x**2
-
-    @pragma.unroll
-    @pragma.inline(f)
-    def g(y):
-        z = y + 3
-        return f(z * 4)
-
-    # ... g Becomes ...
-
-    def g(y):
-        z = y + 3
-        _f = {}
-        _f['x'] = z * 4
-        _f = _f['x'] ** 2
-        return _f
-
-It needs to be noted that, besides arguments getting stored into a dictionary, other variable names remain unaltered when inlined. Thus, if there are shared variable names in the two functions, they might overwrite each other in the resulting inlined function.
+        _f_0 = dict(x=z * 4)
+        try:  # Function body
+            raise _PRAGMA_INLINE_RETURN(_f_0['x'] ** 2)
+        except _PRAGMA_INLINE_RETURN as _f_return_0_exc:
+            _f_return_0 = _f_return_0_exc.return_val
+        else:
+            _f_return_0 = None
+        finally:  # Discard artificial stack frame
+            del _f_0
+        return _f_return_0
 
 .. todo:: Fix name collision by name-mangling non-free variables
 
-Eventually, this could be collapsed using :func:``pragma.collapse_literals``, to produce simply ``return ((y + 3) * 4) ** 2``, but dictionaries aren't yet supported for collapsing.
+Eventually, this could be collapsed using :func:``pragma.collapse_literals``, to produce simply ``return ((y + 3) * 4) ** 2``, but there are numerous hurtles in the way toward making this happen.
 
-When inlining a generator function, the function's results are collapsed into a list, which is then returned. This will break in two main scenarios:
+When inlining a generator function, the function's results are collapsed into a list, which is then returned. This is equivalent to calling ``list(generator_func(*args, **kwargs))``. This will break in two main scenarios:
 
 - The generator never ends, or consumes excessive amounts of resources.
-- The calling code relies on the resulting generator being more than just iterable.
+- The calling code relies on the resulting generator being more than just iterable, e.g. if data is passed back in using calls to ``next``.
+
+.. todo:: Fix generators to return something more like ``iter(list(f(*args, **kwargs))``, since ``list`` itself is not an iterator, but the return of a generator is.
 
 In general, either this won't be an issue, or you should know better than to try to inline the infinite generator.
 
