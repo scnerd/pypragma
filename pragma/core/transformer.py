@@ -36,25 +36,27 @@ def function_ast(f):
 
 class DebugTransformerMixin:  # pragma: nocover
     def visit(self, node):
+        cls = type(self).__name__
+
         try:
             orig_node_code = astor.to_source(node).strip()
         except Exception as ex:
             log.error("{} ({})".format(type(node), astor.dump_tree(node)), exc_info=ex)
             raise ex
-        log.debug("Starting to visit >> {} << ({})".format(orig_node_code, type(node)))
+        log.debug("{} Starting to visit >> {} << ({})".format(cls, orig_node_code, type(node)))
 
         new_node = super().visit(node)
 
         try:
             if new_node is None:
-                log.debug("Deleted >>> {} <<<".format(orig_node_code))
+                log.debug("{} Deleted >>> {} <<<".format(cls, orig_node_code))
             elif isinstance(new_node, ast.AST):
-                log.debug("Converted >>> {} <<< to >>> {} <<<".format(orig_node_code, astor.to_source(new_node).strip()))
+                log.debug("{} Converted >>> {} <<< to >>> {} <<<".format(cls, orig_node_code, astor.to_source(new_node).strip()))
             elif isinstance(new_node, list):
-                log.debug("Converted >>> {} <<< to [[[ {} ]]]".format(orig_node_code, ", ".join(
+                log.debug("{} Converted >>> {} <<< to [[[ {} ]]]".format(cls, orig_node_code, ", ".join(
                     astor.to_source(n).strip() for n in new_node)))
         except Exception as ex:
-            log.error("Failed on {} >>> {}".format(orig_node_code, astor.dump_tree(new_node)), exc_info=ex)
+            log.error("{} Failed on {} >>> {}".format(cls, orig_node_code, astor.dump_tree(new_node)), exc_info=ex)
             raise ex
 
         return new_node
@@ -297,40 +299,46 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
 
     def visit_For(self, node):
         node.iter = self.visit(node.iter)
+        node.target = self.visit(node.target)
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        return self.generic_visit_less(node, 'body', 'orelse', 'iter')
+        return node
 
     def visit_AsyncFor(self, node):
         node.iter = self.visit(node.iter)
+        node.target = self.visit(node.target)
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        return self.generic_visit_less(node, 'body', 'orelse', 'iter')
+        return node
 
     def visit_While(self, node):
+        node.test = self.visit(node.test)
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        return self.generic_visit_less(node, 'body', 'orelse')
+        return node
 
     def visit_If(self, node):
         node.test = self.visit(node.test)
         node.body = self.nested_visit(node.body)
         node.orelse = self.nested_visit(node.orelse)
-        return self.generic_visit_less(node, 'body', 'orelse', 'test')
+        return node
 
     def visit_With(self, node):
+        node.items = self.nested_visit(node.items, set_conditional_exec=False)
         node.body = self.nested_visit(node.body, set_conditional_exec=False)
-        return self.generic_visit_less(node, 'body')
+        return node
 
     def visit_AsyncWith(self, node):
+        node.items = self.nested_visit(node.items, set_conditional_exec=False)
         node.body = self.nested_visit(node.body, set_conditional_exec=False)
-        return self.generic_visit_less(node, 'body')
+        return node
 
     def visit_Try(self, node):
         node.body = self.nested_visit(node.body)
+        node.handlers = self.nested_visit(node.handlers)
         node.orelse = self.nested_visit(node.orelse)
         node.finalbody = self.nested_visit(node.finalbody, set_conditional_exec=False)
-        return self.generic_visit_less(node, 'body', 'orelse', 'finalbody')
+        return node
 
     def visit_Module(self, node):
         node.body = self.nested_visit(node.body, set_conditional_exec=False)

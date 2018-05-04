@@ -50,13 +50,13 @@ class TestInline(PragmaTest):
             try:
                 print('X = {}'.format(_g_0['x']))
                 for _g_0['i'], _g_0['a'] in enumerate(_g_0['args']):
-                    print('args[{}] = {}'.format(i, a))
+                    print('args[{}] = {}'.format(_g_0['i'], _g_0['a']))
                 print('Y = {}'.format(_g_0['y']))
                 for _g_0['k'], _g_0['v'] in _g_0['kwargs'].items():
-                    print('{} = {}'.format(k, v))
+                    print('{} = {}'.format(_g_0['k'], _g_0['v']))
             finally:
                 del _g_0
-            _g_return_0
+            None
         '''
         result2 = '''
         def f():
@@ -64,13 +64,13 @@ class TestInline(PragmaTest):
             try:
                 print('X = {}'.format(_g_0['x']))
                 for _g_0['i'], _g_0['a'] in enumerate(_g_0['args']):
-                    print('args[{}] = {}'.format(i, a))
+                    print('args[{}] = {}'.format(_g_0['i'], _g_0['a']))
                 print('Y = {}'.format(_g_0['y']))
                 for _g_0['k'], _g_0['v'] in _g_0['kwargs'].items():
-                    print('{} = {}'.format(k, v))
+                    print('{} = {}'.format(_g_0['k'], _g_0['v']))
             finally:
                 del _g_0
-            _g_return_0
+            None
         '''
 
         self.assertSourceIn(inline_f, result1, result2)
@@ -129,7 +129,7 @@ class TestInline(PragmaTest):
                 return 0
             _g_0 = dict(x=y - 1)
             try:
-                raise _PRAGMA_INLINE_RETURN(f(x / 2))
+                raise _PRAGMA_INLINE_RETURN(f(_g_0['x'] / 2))
             except _PRAGMA_INLINE_RETURN as _g_return_0_exc:
                 _g_return_0 = _g_return_0_exc.return_val
             else:
@@ -148,21 +148,21 @@ class TestInline(PragmaTest):
             if y <= 0:
                 return 0
             _g_0 = dict(x=y - 1)
-            _f_0 = dict(y=x / 2)
+            _f_0 = dict(y=_g_0['x'] / 2)
             try:
                 if _f_0['y'] <= 0:
                     raise _PRAGMA_INLINE_RETURN(0)
-                raise _PRAGMA_INLINE_RETURN(g(y - 1))
-            except _PRAGMA_INLINE_RETURN as _f_return_0:
-                _f_return_0 = _f_return_0.return_val
+                raise _PRAGMA_INLINE_RETURN(g(_f_0['y'] - 1))
+            except _PRAGMA_INLINE_RETURN as _f_return_0_exc:
+                _f_return_0 = _f_return_0_exc.return_val
             else:
                 _f_return_0 = None
             finally:
                 del _f_0
             try:
                 raise _PRAGMA_INLINE_RETURN(_f_return_0)
-            except _PRAGMA_INLINE_RETURN as _g_return_0:
-                _g_return_0 = _g_return_0.return_val
+            except _PRAGMA_INLINE_RETURN as _g_return_0_exc:
+                _g_return_0 = _g_return_0_exc.return_val
             else:
                 _g_return_0 = None
             finally:

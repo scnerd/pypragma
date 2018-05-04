@@ -82,6 +82,7 @@ class _InlineBodyTransformer(TrackedContextTransformer):
     def __init__(self, func_name, param_names, n):
         self.func_name = func_name
         # print("Func {} takes parameters {}".format(func_name, param_names))
+        self.param_names = list(param_names)
         self.local_names = set(param_names)
         self.nonlocal_names = set()
         self.has_global_catch = False
@@ -118,6 +119,7 @@ class _InlineBodyTransformer(TrackedContextTransformer):
         if isinstance(node.ctx, ast.Store) and node.id not in self.nonlocal_names:
             self.local_names.add(node.id)
 
+        log.debug("Is '{}' ({}) a local variable? locals={}, nonlocals={}".format(node.id, type(node.ctx), self.local_names, self.nonlocal_names))
         if node.id in self.local_names:
             return make_name(self.func_name, node.id, self.n, ctx=type(getattr(node, 'ctx', ast.Load())))
         return node
@@ -286,6 +288,7 @@ class InlineTransformer(TrackedContextTransformer):
                                              ctx=ast.Load()
                                          ))
         else:
+            return_node = ast.NameConstant(None)
             afterwards_body = ast.Pass()
 
         self.visit(afterwards_body)
