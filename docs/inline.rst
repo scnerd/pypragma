@@ -55,3 +55,5 @@ In general, either this won't be an issue, or you should know better than to try
 .. todo:: Support inlining closures; if the inlined function refers to global or nonlocal variables, import them into the closure of the final function.
 
 Recursive calls are handled by keeping a counter of the inlined recursion depth, and changing the suffix number of the local variables dictionary (e.g., ``_f_0``). These dictionaries serve as stack frames: their unique naming permits multiple, even stacked, inlined function calls, and their deletion enforces the usual life span of function-local variables.
+
+.. todo:: Support option to either inline as loop or exception
