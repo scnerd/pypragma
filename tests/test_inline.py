@@ -16,32 +16,14 @@ class TestInline(PragmaTest):
         result = '''
         def f(y):
             _g_0 = dict(x=y + 3)
-            for ____ in [None]:
-                _g_0['return'] = _g_0['x'] ** 2
-                break
-            _g_return_0 = _g_0.get('return', None)
-            del _g_0
-            return _g_return_0
-        '''
-
-        self.assertSourceEqual(f, result)
-        self.assertEqual(f(1), ((1 + 3) ** 2))
-
-    def test_basic_unroll(self):
-        def g(x):
-            return x**2
-
-        @pragma.unroll
-        @pragma.inline(g)
-        def f(y):
-            return g(y + 3)
-
-        result = '''
-        def f(y):
-            _g_0 = dict(x=y + 3)
-            _g_0['return'] = _g_0['x'] ** 2
-            _g_return_0 = _g_0.get('return', None)
-            del _g_0
+            try:
+                raise _PRAGMA_INLINE_RETURN(_g_0['x'] ** 2)
+            except _PRAGMA_INLINE_RETURN as _g_return_0_exc:
+                _g_return_0 = _g_return_0_exc.return_val
+            else:
+                _g_return_0 = None
+            finally:
+                del _g_0
             return _g_return_0
         '''
 
@@ -65,27 +47,29 @@ class TestInline(PragmaTest):
         result1 = '''
         def f():
             _g_0 = dict(x=1, args=(2, 3, 4), y=5, kwargs={'z': 6, 'w': 7})
-            for ____ in [None]:
+            try:
                 print('X = {}'.format(_g_0['x']))
-                for i, a in enumerate(_g_0['args']):
-                    print('args[{}] = {}'.format(i, a))
+                for _g_0['i'], _g_0['a'] in enumerate(_g_0['args']):
+                    print('args[{}] = {}'.format(_g_0['i'], _g_0['a']))
                 print('Y = {}'.format(_g_0['y']))
-                for k, v in _g_0['kwargs'].items():
-                    print('{} = {}'.format(k, v))
-            del _g_0
+                for _g_0['k'], _g_0['v'] in _g_0['kwargs'].items():
+                    print('{} = {}'.format(_g_0['k'], _g_0['v']))
+            finally:
+                del _g_0
             None
         '''
         result2 = '''
         def f():
             _g_0 = dict(x=1, args=(2, 3, 4), y=5, kwargs={'w': 7, 'z': 6})
-            for ____ in [None]:
+            try:
                 print('X = {}'.format(_g_0['x']))
-                for i, a in enumerate(_g_0['args']):
-                    print('args[{}] = {}'.format(i, a))
+                for _g_0['i'], _g_0['a'] in enumerate(_g_0['args']):
+                    print('args[{}] = {}'.format(_g_0['i'], _g_0['a']))
                 print('Y = {}'.format(_g_0['y']))
-                for k, v in _g_0['kwargs'].items():
-                    print('{} = {}'.format(k, v))
-            del _g_0
+                for _g_0['k'], _g_0['v'] in _g_0['kwargs'].items():
+                    print('{} = {}'.format(_g_0['k'], _g_0['v']))
+            finally:
+                del _g_0
             None
         '''
 
@@ -144,30 +128,18 @@ class TestInline(PragmaTest):
             if y <= 0:
                 return 0
             _g_0 = dict(x=y - 1)
-            for ____ in [None]:
-                _g_0['return'] = f(_g_0['x'] / 2)
-                break
-            _g_return_0 = _g_0.get('return', None)
-            del _g_0
+            try:
+                raise _PRAGMA_INLINE_RETURN(f(_g_0['x'] / 2))
+            except _PRAGMA_INLINE_RETURN as _g_return_0_exc:
+                _g_return_0 = _g_return_0_exc.return_val
+            else:
+                _g_return_0 = None
+            finally:
+                del _g_0
             return _g_return_0
         '''
 
         self.assertSourceEqual(f_code, result)
-
-        f_unroll_code = pragma.unroll(pragma.inline(g)(f))
-
-        result_unroll = '''
-        def f(y):
-            if y <= 0:
-                return 0
-            _g_0 = dict(x=y - 1)
-            _g_0['return'] = f(_g_0['x'] / 2)
-            _g_return_0 = _g_0.get('return', None)
-            del _g_0
-            return _g_return_0
-        '''
-
-        self.assertSourceEqual(f_unroll_code, result_unroll)
 
         f2_code = pragma.inline(f, g, f=f)(f)
 
@@ -177,19 +149,24 @@ class TestInline(PragmaTest):
                 return 0
             _g_0 = dict(x=y - 1)
             _f_0 = dict(y=_g_0['x'] / 2)
-            for ____ in [None]:
+            try:
                 if _f_0['y'] <= 0:
-                    _f_0['return'] = 0
-                    break
-                _f_0['return'] = g(_f_0['y'] - 1)
-                break
-            _f_return_0 = _f_0.get('return', None)
-            del _f_0
-            for ____ in [None]:
-                _g_0['return'] = _f_return_0
-                break
-            _g_return_0 = _g_0.get('return', None)
-            del _g_0
+                    raise _PRAGMA_INLINE_RETURN(0)
+                raise _PRAGMA_INLINE_RETURN(g(_f_0['y'] - 1))
+            except _PRAGMA_INLINE_RETURN as _f_return_0_exc:
+                _f_return_0 = _f_return_0_exc.return_val
+            else:
+                _f_return_0 = None
+            finally:
+                del _f_0
+            try:
+                raise _PRAGMA_INLINE_RETURN(_f_return_0)
+            except _PRAGMA_INLINE_RETURN as _g_return_0_exc:
+                _g_return_0 = _g_return_0_exc.return_val
+            else:
+                _g_return_0 = None
+            finally:
+                del _g_0
             return _g_return_0
         ''')
 
@@ -208,16 +185,18 @@ class TestInline(PragmaTest):
         result = '''
         def f(x):
             _g_0 = dict([('yield', [])], y=x)
-            for ____ in [None]:
-                for i in range(_g_0['y']):
-                    _g_0['yield'].append(i)
+            try:
+                for _g_0['i'] in range(_g_0['y']):
+                    _g_0['yield'].append(_g_0['i'])
                 _g_0['yield'].extend(range(_g_0['y']))
-            _g_return_0 = _g_0['yield']
-            del _g_0
+            finally:
+                _g_return_0 = _g_0['yield']
+                del _g_0
             return sum(_g_return_0)
         '''
 
         self.assertSourceEqual(f, result)
+        self.assertEqual(f(3), 6)
 
     def test_variable_starargs(self):
         def g(a, b, c):
@@ -249,17 +228,28 @@ class TestInline(PragmaTest):
         result = '''
         def f(x):
             _a_0 = dict(x=x)
-            _a_0['return'] = _a_0['x'] ** 2
-            _a_return_0 = _a_0.get('return', None)
-            del _a_0
+            try:
+                raise _PRAGMA_INLINE_RETURN(_a_0['x'] ** 2)
+            except _PRAGMA_INLINE_RETURN as _a_return_0_exc:
+                _a_return_0 = _a_return_0_exc.return_val
+            else:
+                _a_return_0 = None
+            finally:
+                del _a_0
             _b_0 = dict(x=x)
-            _b_0['return'] = _b_0['x'] + 2
-            _b_return_0 = _b_0.get('return', None)
-            del _b_0
+            try:
+                raise _PRAGMA_INLINE_RETURN(_b_0['x'] + 2)
+            except _PRAGMA_INLINE_RETURN as _b_return_0_exc:
+                _b_return_0 = _b_return_0_exc.return_val
+            else:
+                _b_return_0 = None
+            finally:
+                del _b_0
             return _a_return_0 + _b_return_0
         '''
 
         self.assertSourceEqual(f, result)
+        self.assertEqual(f(5), 32)
 
     def test_coverage(self):
         def g(y):
@@ -290,15 +280,48 @@ class TestInline(PragmaTest):
         result = '''
         def test_my_range():
             _my_range_0 = dict([('yield', [])], x=5)
-            i = 0
-            while i < _my_range_0['x']:
-                _my_range_0['yield'].append(i)
-                i += 1
-            _my_range_return_0 = _my_range_0['yield']
-            del _my_range_0
+            try:
+                _my_range_0['i'] = 0
+                while _my_range_0['i'] < _my_range_0['x']:
+                    _my_range_0['yield'].append(_my_range_0['i'])
+                    _my_range_0['i'] += 1
+            finally:
+                _my_range_return_0 = _my_range_0['yield']
+                del _my_range_0
             return list(_my_range_return_0)
         '''
 
         self.assertSourceEqual(test_my_range, result)
         self.assertEqual(test_my_range(), [0, 1, 2, 3, 4])
+
+    def test_return_inside_loop(self):
+        def g(x):
+            for i in range(x + 1):
+                if i == x:
+                    return i
+            return None
+
+        @pragma.inline(g)
+        def f(y):
+            return g(y + 2)
+
+        result = '''
+        def f(y):
+            _g_0 = dict(x=y + 2)
+            try:
+                for _g_0['i'] in range(_g_0['x'] + 1):
+                    if _g_0['i'] == _g_0['x']:
+                        raise _PRAGMA_INLINE_RETURN(_g_0['i'])
+                raise _PRAGMA_INLINE_RETURN(None)
+            except _PRAGMA_INLINE_RETURN as _g_return_0_exc:
+                _g_return_0 = _g_return_0_exc.return_val
+            else:
+                _g_return_0 = None
+            finally:
+                del _g_0
+            return _g_return_0
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(3), 5)
 

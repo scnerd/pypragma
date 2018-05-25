@@ -46,6 +46,13 @@ log = logging.getLogger(__name__)
 #           -- col_offset is the byte offset in the utf8 string the parser uses
 #           attributes (int lineno, int col_offset)
 
+
+class _PRAGMA_INLINE_RETURN(BaseException):
+    def __init__(self, val=None):
+        super().__init__()
+        self.return_val = val
+
+
 DICT_FMT = "_{fname}_{n}"
 
 
@@ -58,7 +65,7 @@ def make_name(fname, var, n, ctx=ast.Load):
     :param var: Argument name
     :type var: str
     :param ctx: Context of this name (LOAD or STORE)
-    :type ctx: Load|Store
+    :type ctx: type
     :param n: The number to append to this name (to allow for finite recursion)
     :type n: int
     :param fmt: Name format (if not stored in a dictionary)
@@ -74,36 +81,48 @@ def make_name(fname, var, n, ctx=ast.Load):
 class _InlineBodyTransformer(TrackedContextTransformer):
     def __init__(self, func_name, param_names, n):
         self.func_name = func_name
-        # print("Func {} takes parameters {}".format(func_name, param_names))
-        self.param_names = param_names
-        self.in_break_block = False
+        self.param_names = list(param_names)
+        self.local_names = set(param_names)
+        self.nonlocal_names = set()
+        self.has_global_catch = False
         self.n = n
         self.had_return = False
         self.had_yield = False
         super().__init__()
 
+    def __setitem__(self, key, value):
+        self.local_names.add(key)
+        super().__setitem__(key, value)
+
+    def visit_Global(self, node):
+        self.nonlocal_names |= node.names
+        self.local_names -= node.names
+        return self.generic_visit(node)
+
+    def visit_Nonlocal(self, node):
+        self.nonlocal_names |= node.names
+        self.local_names -= node.names
+        return self.generic_visit(node)
+
     def visit_Name(self, node):
-        # Check if this is a parameter, and hasn't had another value assigned to it
-        if node.id in self.param_names:
-            # print("Found parameter reference {}".format(node.id))
-            if node.id not in self.ctxt:
-                # If so, get its value from the argument dictionary
-                return make_name(self.func_name, node.id, self.n, ctx=type(getattr(node, 'ctx', ast.Load())))
-            else:
-                # print("But it's been overwritten to {} = {}".format(node.id, self.ctxt[node.id]))
-                pass
+        if isinstance(node.ctx, ast.Store) and node.id not in self.nonlocal_names:
+            self.local_names.add(node.id)
+
+        log.debug("Is '{}' ({}) a local variable? locals={}, nonlocals={}".format(node.id, type(node.ctx), self.local_names, self.nonlocal_names))
+        if node.id in self.local_names:
+            return make_name(self.func_name, node.id, self.n, ctx=type(getattr(node, 'ctx', ast.Load())))
         return node
 
     def visit_Return(self, node):
-        if self.in_break_block:
-            raise NotImplementedError("miniutils.pragma.inline cannot handle returns from within a loop")
-        result = []
-        if node.value:
-            result.append(ast.Assign(targets=[make_name(self.func_name, 'return', self.n, ctx=ast.Store)],
-                                     value=self.visit(node.value)))
-        result.append(ast.Break())
         self.had_return = True
-        return result
+        return ast.Raise(
+            exc=ast.Call(
+                func=ast.Name(id=_PRAGMA_INLINE_RETURN.__name__, ctx=ast.Load()),
+                args=[self.visit(node.value)] if node.value is not None else [],
+                keywords=[]
+            ),
+            cause=None
+        )
 
     def visit_Yield(self, node):
         self.had_yield = True
@@ -123,19 +142,11 @@ class _InlineBodyTransformer(TrackedContextTransformer):
                         args=[self.visit(node.value)],
                         keywords=[])
 
-    def visit_For(self, node):
-        orig_in_break_block = self.in_break_block
-        self.in_break_block = True
-        res = super().visit_For(node)
-        self.in_break_block = orig_in_break_block
-        return res
-
-    def visit_While(self, node):
-        orig_in_break_block = self.in_break_block
-        self.in_break_block = True
-        res = super().visit_While(node)
-        self.in_break_block = orig_in_break_block
-        return res
+    def visit_ExceptHandler(self, node):
+        node = self.generic_visit(node)
+        if node.type is None or issubclass(BaseException, self.resolve_name_or_attribute(node.type)):
+            self.has_global_catch = True
+        return node
 
 
 class InlineTransformer(TrackedContextTransformer):
@@ -149,134 +160,149 @@ class InlineTransformer(TrackedContextTransformer):
     def visit_Call(self, node):
         """When we see a function call, insert the function body into the current code block, then replace the call
         with the return expression """
+
         node = self.generic_visit(node)
         node_fun = self.resolve_name_or_attribute(self.resolve_literal(node.func))
 
-        for (fun, fname, fsig, fbody) in self.funs:
-            if fun != node_fun:
-                continue
+        try:
+            fun, fname, fsig, fbody = next(f for f in self.funs if f[0] == node_fun)
+        except StopIteration:
+            return node
 
-            n = 0
-            for i in range(self.max_depth):
-                args_dict_name = DICT_FMT.format(fname=fname, n=i)
-                n = i  # This is redundant, but a bit clearer and safer than just referencing i later
-                if args_dict_name not in self.ctxt:
-                    break
-            else:
-                warnings.warn("Inline hit recursion limit, using normal function call")
-                return node
+        possible_dict_names = ((i, DICT_FMT.format(fname=fname, n=i)) for i in range(self.max_depth))
+        possible_dict_names = ((i, name) for i, name in possible_dict_names if name not in self.ctxt)
+        try:
+            n, args_dict_name = next(possible_dict_names)
+        except StopIteration:
+            warnings.warn("Inline hit recursion limit, using normal function call")
+            return node
 
-            func_for_inlining = _InlineBodyTransformer(fname, fsig.parameters, n)
-            fbody = list(func_for_inlining.visit_many(copy.deepcopy(fbody)))
+        func_for_inlining = _InlineBodyTransformer(fname, fsig.parameters, n)
+        fbody = list(func_for_inlining.visit_many(copy.deepcopy(fbody)))
 
-            # print(self.code_blocks)
-            cur_block = self.code_blocks[-1]
-            new_code = []
+        if func_for_inlining.has_global_catch:
+            warnings.warn("Unable to inline function with an unbound except statement")
+            return node
 
-            # Load arguments into their appropriate variables
-            args = node.args
-            flattened_args = []
-            for a in args:
-                if isinstance(a, ast.Starred):
-                    a = self.resolve_iterable(a.value)
-                    if a:
-                        flattened_args.extend(a)
-                    else:
-                        warnings.warn("Cannot inline function call that uses non-constant star args")
-                        return node
+        # print(self.code_blocks)
+        cur_block = self.code_blocks[-1]
+        new_code = []
+
+        # Load arguments into their appropriate variables
+        args = node.args
+        flattened_args = []
+        for a in args:
+            if isinstance(a, ast.Starred):
+                a = self.resolve_iterable(a.value)
+                if a:
+                    flattened_args.extend(a)
                 else:
-                    flattened_args.append(a)
+                    warnings.warn("Cannot inline function call that uses non-constant star args")
+                    return node
+            else:
+                flattened_args.append(a)
 
-            keywords = [(kw.arg, kw.value) for kw in node.keywords if kw.arg is not None]
-            kw_dict = [kw.value for kw in node.keywords if kw.arg is None]
-            kw_dict = kw_dict[0] if kw_dict else None
+        keywords = [(kw.arg, kw.value) for kw in node.keywords if kw.arg is not None]
+        kw_dict = [kw.value for kw in node.keywords if kw.arg is None]
+        kw_dict = kw_dict[0] if kw_dict else None
 
-            bound_args = fsig.bind(*flattened_args, **odict(keywords))
-            bound_args.apply_defaults()
+        bound_args = fsig.bind(*flattened_args, **odict(keywords))
+        bound_args.apply_defaults()
 
-            # Create args dictionary
-            final_args = []
-            final_kwargs = []
+        # Create args dictionary
+        final_args = []
+        final_kwargs = []
 
-            for arg_name, arg_value in bound_args.arguments.items():
-                if isinstance(arg_value, tuple):
-                    arg_value = ast.Tuple(elts=list(arg_value), ctx=ast.Load())
-                elif isinstance(arg_value, dict):
-                    keys, values = zip(*list(arg_value.items()))
-                    keys = [ast.Str(k) for k in keys]
-                    values = list(values)
-                    arg_value = ast.Dict(keys=keys, values=values)
-                # fun_name['param_name'] = param_value
-                final_kwargs.append((arg_name, arg_value))
+        for arg_name, arg_value in bound_args.arguments.items():
+            if isinstance(arg_value, tuple):
+                arg_value = ast.Tuple(elts=list(arg_value), ctx=ast.Load())
+            elif isinstance(arg_value, dict):
+                keys, values = zip(*list(arg_value.items()))
+                keys = [ast.Str(k) for k in keys]
+                values = list(values)
+                arg_value = ast.Dict(keys=keys, values=values)
+            # fun_name['param_name'] = param_value
+            final_kwargs.append((arg_name, arg_value))
 
-            if kw_dict:
-                final_kwargs.append((None, kw_dict))
+        if kw_dict:
+            final_kwargs.append((None, kw_dict))
 
-            if func_for_inlining.had_yield:
-                final_args.append(ast.List(elts=[ast.Tuple(elts=[ast.Str('yield'), ast.List(elts=[], ctx=ast.Load())],
-                                                           ctx=ast.Load())],
-                                           ctx=ast.Load()))
+        if func_for_inlining.had_yield:
+            final_args.append(ast.List(elts=[ast.Tuple(elts=[ast.Str('yield'), ast.List(elts=[], ctx=ast.Load())],
+                                                       ctx=ast.Load())],
+                                       ctx=ast.Load()))
 
-            # fun_name = {}
-            dict_call = ast.Call(
-                func=ast.Name(id='dict', ctx=ast.Load()),
-                args=final_args,
-                keywords=[ast.keyword(arg=name, value=val) for name, val in final_kwargs]
-            )
-            new_code.append(ast.Assign(
-                targets=[ast.Name(id=args_dict_name, ctx=ast.Store())],
-                value=dict_call
+        # fun_name = {}
+        dict_call = ast.Call(
+            func=ast.Name(id='dict', ctx=ast.Load()),
+            args=final_args,
+            keywords=[ast.keyword(arg=name, value=val) for name, val in final_kwargs]
+        )
+        new_code.append(ast.Assign(
+            targets=[ast.Name(id=args_dict_name, ctx=ast.Store())],
+            value=dict_call
+        ))
+
+        # Process assignments before resolving body
+        cur_block.extend(self.visit_many(new_code))
+
+        # Inline function code
+        new_body = list(self.visit_many(fbody))
+
+        for j in range(100000):
+            output_name = DICT_FMT.format(fname=fname + '_return', n=j)
+            if output_name not in self.ctxt:
+                break
+        else:
+            raise RuntimeError("Function {} called and returned too many times during inlining, not able to "
+                               "put the return value into a uniquely named variable".format(fname))
+
+        return_node = ast.Name(id=output_name, ctx=ast.Load())
+
+        if func_for_inlining.had_yield:
+            afterwards_body = ast.Assign(targets=[ast.Name(id=output_name, ctx=ast.Store())],
+                                         value=make_name(fname, 'yield', n))
+        elif func_for_inlining.had_return:
+            afterwards_body = ast.Assign(targets=[ast.Name(id=output_name, ctx=ast.Store())],
+                                         value=ast.Attribute(
+                                             value=ast.Name(id=output_name + "_exc", ctx=ast.Load()),
+                                             attr='return_val',
+                                             ctx=ast.Load()
+                                         ))
+        else:
+            return_node = ast.NameConstant(None)
+            afterwards_body = ast.Pass()
+
+        self.visit(afterwards_body)
+        afterwards_body = [afterwards_body] if isinstance(afterwards_body, ast.AST) else afterwards_body
+
+        if func_for_inlining.had_return:
+            cur_block.append(ast.Try(
+                body=new_body,
+                handlers=[ast.ExceptHandler(
+                    type=ast.Name(id=_PRAGMA_INLINE_RETURN.__name__, ctx=ast.Load()),
+                    name=output_name + "_exc",
+                    body=afterwards_body
+                )],
+                orelse=afterwards_body if func_for_inlining.had_yield else [
+                    self.visit(ast.Assign(targets=[ast.Name(id=output_name, ctx=ast.Store())],
+                                          value=ast.NameConstant(None)))
+                ],
+                finalbody=[
+                    self.visit(ast.Delete(targets=[ast.Name(id=args_dict_name, ctx=ast.Del())]))
+                ]
+            ))
+        else:
+            cur_block.append(ast.Try(
+                body=new_body,
+                handlers=[],
+                orelse=[],
+                finalbody=(afterwards_body if not isinstance(afterwards_body[0], ast.Pass) else []) + [
+                    self.visit(ast.Delete(targets=[ast.Name(id=args_dict_name, ctx=ast.Del())]))
+                ]
             ))
 
-            # Process assignments before resolving body
-            cur_block.extend(self.visit_many(new_code))
-
-            # Inline function code
-            new_body = list(self.visit_many(fbody))
-
-            # cur_block.append(self.visit(ast.For(target=ast.Name(id='____', ctx=ast.Store()),
-            #                                     iter=ast.List(elts=[ast.NameConstant(None)], ctx=ast.Load()),
-            #                                     body=new_body,
-            #                                     orelse=[])))
-            cur_block.append(ast.For(target=ast.Name(id='____', ctx=ast.Store()),
-                                     iter=ast.List(elts=[ast.NameConstant(None)], ctx=ast.Load()),
-                                     body=new_body,
-                                     orelse=[]))
-
-            # fun_name['return']
-            if func_for_inlining.had_yield or func_for_inlining.had_return:
-                for j in range(100000):
-                    output_name = DICT_FMT.format(fname=fname + '_return', n=j)
-                    if output_name not in self.ctxt:
-                        break
-                else:
-                    raise RuntimeError("Function {} called and returned too many times during inlining, not able to "
-                                       "put the return value into a uniquely named variable".format(fname))
-
-                if func_for_inlining.had_yield:
-                    cur_block.append(self.visit(ast.Assign(targets=[ast.Name(id=output_name, ctx=ast.Store())],
-                                                           value=make_name(fname, 'yield', n))))
-                elif func_for_inlining.had_return:
-                    get_call = ast.Call(
-                        func=ast.Attribute(
-                            value=ast.Name(id=args_dict_name, ctx=ast.Load()),
-                            attr='get',
-                            ctx=ast.Load()),
-                        args=[ast.Str('return'), ast.NameConstant(None)],
-                        keywords=[]
-                    )
-                    cur_block.append(self.visit(ast.Assign(targets=[ast.Name(id=output_name, ctx=ast.Store())],
-                                                           value=get_call)))
-
-                return_node = ast.Name(id=output_name, ctx=ast.Load())
-            else:
-                return_node = ast.NameConstant(None)
-
-            cur_block.append(self.visit(ast.Delete(targets=[ast.Name(id=args_dict_name, ctx=ast.Del())])))
-            return return_node
-
-        else:
-            return node
+        return return_node
 
 
 # @magic_contract
@@ -297,7 +323,10 @@ def inline(*funs_to_inline, max_depth=1, **kwargs):
 
         funs.append((fun_to_inline, fname, fsig, fbody))
 
+    kwargs['function_globals'] = kwargs.get('function_globals', {})
+    kwargs['function_globals'].update({_PRAGMA_INLINE_RETURN.__name__: _PRAGMA_INLINE_RETURN})
     return make_function_transformer(InlineTransformer,
                                      'inline',
                                      'Inline the specified function within the decorated function',
-                                     funs=funs, max_depth=max_depth)(**kwargs)
+                                     funs=funs,
+                                     max_depth=max_depth)(**kwargs)
