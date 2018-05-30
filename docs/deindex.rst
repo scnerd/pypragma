@@ -49,5 +49,3 @@ This could be used, for example, in a case where dynamically calling functions i
 Note that because the array being de-indexed is passed to the decorator, the value of the constant-defined variables (e.g. ``v_0`` in the code above) is "compiled" into the code of the function, and won't update if the array is updated. Again, variable-indexed calls remain unaffected.
 
 Since names are (and must) be used as references to the array being de-indexed, it's worth noting that any other local variable of the format ``"{iterable_name}_{i}"`` will get shadowed by this function. The string passed to ``iterable_name`` must be the name used for the iterable within the wrapped function.
-
-.. todo:: Support selecting lists by name only, and extracting the list value from the closure (e.g. to permit deindexing nested lists)

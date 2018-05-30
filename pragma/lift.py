@@ -1,15 +1,16 @@
 import ast
-import astor
-import tempfile
-import sys
-from miniutils import magic_contract, optional_argument_decorator
-from types import ModuleType
 import logging
-log = logging.getLogger(__name__)
+import sys
+import tempfile
+from types import ModuleType
 
-from .core import TrackedContextTransformer, make_function_transformer, resolve_literal
-from .core.transformer import function_ast
+import astor
+from miniutils import magic_contract, optional_argument_decorator
+
 from .core.resolve import make_ast_from_literal
+from .core.transformer import function_ast
+
+log = logging.getLogger(__name__)
 
 _exclude = {'__builtin__', '__builtins__', 'builtin', 'builtins'}
 if sys.version_info < (3, 6):
@@ -131,8 +132,8 @@ class lift:
     @magic_contract(f='Callable', returns='Callable|str')
     def __call__(self, f):
         f_mod, f_body, f_file = function_ast(f)
-        # Grab function closure variables
 
+        # Grab function closure variables
         free_vars = self._get_free_vars(f)
 
         if self.imports:

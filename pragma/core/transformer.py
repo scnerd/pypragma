@@ -1,19 +1,21 @@
 import ast
 import copy
 import inspect
+import logging
 import sys
 import tempfile
 import textwrap
-import logging
 import warnings
-log = logging.getLogger(__name__)
 
 import astor
 from miniutils.opt_decorator import optional_argument_decorator
 from miniutils import magic_contract
 
-from pragma.core.stack import DictStack
-from pragma.core.resolve import resolve_literal, resolve_iterable, resolve_indexable, resolve_name_or_attribute, make_ast_from_literal
+from .stack import DictStack
+from .resolve import resolve_literal, resolve_iterable, resolve_indexable, resolve_name_or_attribute, \
+    make_ast_from_literal
+
+log = logging.getLogger(__name__)
 
 
 @magic_contract
@@ -45,7 +47,8 @@ class DebugTransformerMixin:  # pragma: nocover
             if new_node is None:
                 log.debug("Deleted >>> {} <<<".format(orig_node_code))
             elif isinstance(new_node, ast.AST):
-                log.debug("Converted >>> {} <<< to >>> {} <<<".format(orig_node_code, astor.to_source(new_node).strip()))
+                log.debug(
+                    "Converted >>> {} <<< to >>> {} <<<".format(orig_node_code, astor.to_source(new_node).strip()))
             elif isinstance(new_node, list):
                 log.debug("Converted >>> {} <<< to [[[ {} ]]]".format(orig_node_code, ", ".join(
                     astor.to_source(n).strip() for n in new_node)))
@@ -144,12 +147,14 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
         return node
 
     def __setitem__(self, key, value):
-        log.debug("Context setting {} to {}".format(key, "?UNKNOWN?" if value is None else astor.to_source(value).strip()))
+        log.debug(
+            "Context setting {} to {}".format(key, "?UNKNOWN?" if value is None else astor.to_source(value).strip()))
         self.ctxt[key] = value
 
     def __getitem__(self, item):
         res = self.ctxt[item]
-        log.debug("Context resolving {} to {}".format(item, "?UNKNOWN?" if res is None else astor.to_source(res).strip()))
+        log.debug(
+            "Context resolving {} to {}".format(item, "?UNKNOWN?" if res is None else astor.to_source(res).strip()))
         return res
 
     def __delitem__(self, key):
@@ -178,7 +183,9 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
                             else:  # (_a_, b) = _1_, 2
                                 yield from self._assign(subname, next(iterable_val))
                     except StopIteration:
-                        raise IndexError("Failed to unpack {} into {}, either had too few elements or values after a starred variable".format(val, name))
+                        raise IndexError(
+                            "Failed to unpack {} into {}, either had too few elements or values after a starred variable".format(
+                                val, name))
                 else:
                     yield from self._assign(name, None)
 
@@ -215,9 +222,10 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
                         try:
                             cur_iterable[literal_idx] = val
                         except (IndexError, KeyError):
-                            raise IndexError("Cannot assigned {arr}[{idx}] = {set} where {arr}={arr_val} and {idx}={idx_val}".format(
-                                arr=arr.id, idx=idx, set=val, arr_val=cur_iterable, idx_val=literal_idx
-                            ))
+                            raise IndexError(
+                                "Cannot assigned {arr}[{idx}] = {set} where {arr}={arr_val} and {idx}={idx_val}".format(
+                                    arr=arr.id, idx=idx, set=val, arr_val=cur_iterable, idx_val=literal_idx
+                                ))
                         self[arr.id] = make_ast_from_literal(cur_iterable)
                     else:  # a[???] = val
                         self[arr.id] = None
@@ -273,7 +281,7 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
 
     def visit_FunctionDef(self, node):
         if not self.in_main_func:
-            self.ctxt.push({}, False)
+            self.ctxt.push({})
             node.body = self.nested_visit(node.body, set_conditional_exec=False)
             self.ctxt.pop()
             return self.generic_visit_less(node, 'body')

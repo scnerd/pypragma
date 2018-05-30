@@ -25,32 +25,7 @@ This is capable of resolving expressions of numerous sorts:
 - A unary, binary, or logical operation on known values is replaced by the result of that operation on those values
 - A `if/elif/else` block is trimmed of options that are known at decoration-time to be impossible. If it can be known which branch runs at decoration time, then the conditional is removed altogether and replaced with the body of that branch
 
-Currently, this decorator is not robust to runtime branches which may or may not affect certain values. For example::
-
-    @pragma.collapse_literals
-    def f(y):
-        x = 0
-        if y:
-            x = 1
-        return x
-
-Ought to become::
-
-    def f(y):
-        x = 0
-        if y:
-            x = 1
-        return x  # This isn't resolved because it isn't known which branch will be taken
-
-But currently this will fail and become::
-
-    def f(y):
-        x = 0
-        if y:
-            x = 1
-        return 1  # Since this was the last value we saw assigned to x
-
-If the branch is constant, and thus known at decoration time, then this flaw won't affect anything::
+If a branch is constant, and thus known at decoration time, then only the correct branch will be left::
 
     @pragma.collapse_literals
     def f():
@@ -66,7 +41,8 @@ If the branch is constant, and thus known at decoration time, then this flaw won
         x = 2
         return 2
 
-.. todo:: Support set/get on dictionaries
-.. todo:: Support sets?
+This decorator is actually very powerful, understanding any definition-time known collections, primitives, or even dictionaries. Subscripts are resolved if the list or dictionary, and the key into it, can be resolved. Names are replaced by their values if they are not containers (since re-writing a container, such as a tuple or list, could duplicate object references). Functions, such as ``len`` and ``sum`` can be computed and replaced with their value if their arguments are known.
+
 .. todo:: Always commit changes within a block, and only mark values as non-deterministic outside of conditional blocks
 .. todo:: Support list/set/dict comprehensions
+.. todo:: Attributes are too iffy, since properties abound, but assignment to a known index of a known indexable should be remembered

@@ -302,3 +302,25 @@ class TestInline(PragmaTest):
         self.assertSourceEqual(test_my_range, result)
         self.assertEqual(test_my_range(), [0, 1, 2, 3, 4])
 
+    def test_collapse_unroll_inline(self):
+        def g(x):
+            return x**2
+
+        @pragma.collapse_literals
+        @pragma.unroll
+        @pragma.inline(g)
+        def f(y):
+            return g(y + 3)
+
+        result = '''
+        def f(y):
+            _g_0 = {'x': y + 3}
+            _g_0['return'] = (y + 3) ** 2
+            _g_return_0 = _g_0.get('return', None)
+            del _g_0
+            return _g_return_0
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(1), ((1 + 3) ** 2))
+

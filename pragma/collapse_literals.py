@@ -1,7 +1,8 @@
 import ast
+import logging
 
 from .core import TrackedContextTransformer, make_function_transformer, primitive_ast_types
-import logging
+
 log = logging.getLogger(__name__)
 
 
