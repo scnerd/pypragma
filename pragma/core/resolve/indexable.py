@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 @_log_call
 def _resolve_indexable_name_or_attr(node, ctxt):
     resolution = resolve_name_or_attribute(node, ctxt)
-    if resolution != node:
+    if resolution is not node:
         if isinstance(resolution, ast.AST):
             resolution = _resolve_indexable(resolution, ctxt)
         return resolution
