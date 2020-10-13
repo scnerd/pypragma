@@ -1,3 +1,4 @@
+from collections import namedtuple
 from textwrap import dedent
 
 import pragma
@@ -481,6 +482,19 @@ class TestCollapseLiterals(PragmaTest):
             x = 2
             x[2] = 0
         '''
+
+    def test_explicit_collapse(self):
+        a = 2
+        b = 3
+        @pragma.collapse_literals(explicit_only=True, b=b)
+        def f():
+            x = a
+            y = b
+        result = '''
+        def f():
+            x = a
+            y = 3
+        '''
         self.assertSourceEqual(f, result)
 
         @pragma.collapse_literals
@@ -496,17 +510,3 @@ class TestCollapseLiterals(PragmaTest):
         '''
         self.assertSourceEqual(f, result)
         self.assertSourceEqual(pragma.collapse_literals(f), result)
-
-    def test_explicit_collapse(self):
-        a = 2
-        b = 3
-        @pragma.collapse_literals(explicit_only=True, b=b)
-        def f():
-            x = a
-            y = b
-        result = '''
-        def f():
-            x = a
-            y = 3
-        '''
-        self.assertSourceEqual(f, result)

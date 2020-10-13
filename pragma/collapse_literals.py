@@ -33,6 +33,9 @@ class CollapseTransformer(TrackedContextTransformer):
     def visit_Compare(self, node):
         return self.resolve_literal(self.generic_visit(node))
 
+    def visit_Attribute(self, node):
+        return self.resolve_literal(node)
+
     def visit_Subscript(self, node):
         return self.resolve_literal(self.generic_visit(node))
 

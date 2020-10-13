@@ -84,8 +84,10 @@ def _resolve_literal(node, ctxt):
     # except:
     #     print("Trying to collapse (source not possible) {}".format(astor.dump_tree(node)))
 
-    if isinstance(node, (ast.Name, ast.Attribute, ast.NameConstant)):
+    if isinstance(node, (ast.Name, ast.NameConstant)):
         return resolve_literal_name(node, ctxt)
+    elif isinstance(node, ast.Attribute):
+        return resolve_literal_attribute(node, ctxt)
     elif isinstance(node, ast.Num):
         return node.n
     elif isinstance(node, ast.Str):
@@ -121,6 +123,17 @@ def resolve_literal_name(node, ctxt):
         else:
             log.debug("{} is an AST node, but can't safely be made more specific".format(res))
     return res
+
+
+@_log_call
+def resolve_literal_attribute(node, ctxt):
+    base_obj = _resolve_literal(node.value, ctxt)
+    if not isinstance(node.attr, ast.AST):
+        try:
+            return getattr(base_obj, node.attr)
+        except AttributeError:
+            log.debug("Cannot resolve attribute '{}' of {}".format(node.attr, base_obj))
+    return resolve_literal_name(node, ctxt)  # fallback to previous behavior
 
 
 @_log_call
