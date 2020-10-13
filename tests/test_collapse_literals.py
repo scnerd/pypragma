@@ -524,7 +524,7 @@ class TestCollapseLiterals(PragmaTest):
             s = 0
             if na.y == na[2]:
                 s = 1
-            t = na.z  # the result is not a literal
+            t = na.z  # the result is neither literal nor typeable
         result = '''
         def f():
             q = 3

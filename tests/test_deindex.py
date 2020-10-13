@@ -1,3 +1,4 @@
+from collections import namedtuple
 import inspect
 from textwrap import dedent
 
@@ -149,3 +150,28 @@ class TestDeindex(PragmaTest):
         '''
 
         self.assertSourceEqual(f, result)
+
+    def test_with_namedtuple(self):
+        a = [1, 2., object()]  # heterogeneous types in sequence
+        nttyp = namedtuple('nttyp', 'x,y,z')
+        na = nttyp(*a)
+
+        @pragma.deindex(na, 'na')
+        def f():
+            yield na.x  # Attribute -> literal Name -X literal Number
+            yield na[1]
+            yield na.z  # This will become typeable
+        result = '''
+        def f():
+            yield na_0
+            yield na_1
+            yield na_2
+        '''
+        roundtrip_result = '''
+        def f():
+            yield 1
+            yield 2.0
+            yield na_2
+        '''
+        self.assertSourceEqual(f, result)
+        self.assertSourceEqual(pragma.collapse_literals(f), roundtrip_result)
