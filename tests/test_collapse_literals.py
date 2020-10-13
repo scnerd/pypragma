@@ -356,6 +356,20 @@ class TestCollapseLiterals(PragmaTest):
 
         self.assertSourceEqual(f, result)
 
+    def test_iterable_option(self):
+        a = [1, 2, 3, 4]
+
+        @pragma.collapse_literals(collapse_iterables=True)
+        def f():
+            x = a
+
+        result = '''
+        def f():
+            x = [1, 2, 3, 4]
+        '''
+
+        self.assertSourceEqual(f, result)
+
     def test_reduction(self):
         a = [1, 2, 3]
 

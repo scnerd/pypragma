@@ -1,17 +1,24 @@
 import ast
 import logging
 
-from .core import TrackedContextTransformer, make_function_transformer, primitive_ast_types
+from .core import TrackedContextTransformer, make_function_transformer, primitive_ast_types, iterable_ast_types
 
 log = logging.getLogger(__name__)
 
 
 # noinspection PyPep8Naming
 class CollapseTransformer(TrackedContextTransformer):
+    collapse_iterables = False
+
     def visit_Name(self, node):
         res = self.resolve_literal(node)
         if isinstance(res, primitive_ast_types):
             return res
+        if isinstance(res, iterable_ast_types):
+            if self.collapse_iterables:
+                return res
+            else:
+                log.debug("Not collapsing iterable {}. Change this setting with collapse_literals(collapse_iterables=True)".format(res))
         return node
 
     def visit_BinOp(self, node):
