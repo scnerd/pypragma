@@ -482,19 +482,6 @@ class TestCollapseLiterals(PragmaTest):
             x = 2
             x[2] = 0
         '''
-
-    def test_explicit_collapse(self):
-        a = 2
-        b = 3
-        @pragma.collapse_literals(explicit_only=True, b=b)
-        def f():
-            x = a
-            y = b
-        result = '''
-        def f():
-            x = a
-            y = 3
-        '''
         self.assertSourceEqual(f, result)
 
         @pragma.collapse_literals
@@ -510,3 +497,59 @@ class TestCollapseLiterals(PragmaTest):
         '''
         self.assertSourceEqual(f, result)
         self.assertSourceEqual(pragma.collapse_literals(f), result)
+
+    def test_explicit_collapse(self):
+        a = 2
+        b = 3
+        @pragma.collapse_literals(explicit_only=True, b=b)
+        def f():
+            x = a
+            y = b
+        result = '''
+        def f():
+            x = a
+            y = 3
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_namedtuple_literal_attribute(self):
+        a = [1, 2, 3, object()]  # heterogeneous types in sequence
+        nttyp = namedtuple('nttyp', 'w,x,y,z')
+        na = nttyp(*a)
+
+        @pragma.collapse_literals
+        def f():
+            q = na[2]
+            r = na.y
+            s = 0
+            if na.y == na[2]:
+                s = 1
+            t = na.z  # the result is not a literal
+        result = '''
+        def f():
+            q = 3
+            r = 3
+            s = 0
+            s = 1
+            t = na.z
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_duck_attribute(self):
+        class UserKlass:
+            def __init__(self, quack):
+                self.quack = quack
+
+        oa = UserKlass([0, 0])
+        ob = UserKlass(4)
+
+        @pragma.collapse_literals
+        def f():
+            q = oa.quack
+            r = ob.quack
+        result = '''
+        def f():
+            q = [0, 0]
+            r = 4
+        '''
+        self.assertSourceEqual(f, result)
