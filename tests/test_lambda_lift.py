@@ -155,7 +155,7 @@ class TestLambdaLift(PragmaTest):
             import pragma
             import sys
             return sys.version_info
-        ''')
+        ''', skip_pytest_imports=True)
         self.assertSourceEqual(pragma.lift(imports=['sys'])(f), '''
         def f():
             import sys
@@ -172,7 +172,7 @@ class TestLambdaLift(PragmaTest):
             import pragma
             import sys as pseudo_sys
             return pseudo_sys.version_info
-        ''')
+        ''', skip_pytest_imports=True)
 
     def test_docstring(self):
         @pragma.lift(imports=True)
@@ -187,6 +187,6 @@ class TestLambdaLift(PragmaTest):
             return x + 1
         '''
 
-        self.assertSourceEqual(f, result)
+        self.assertSourceEqual(f, result, skip_pytest_imports=True)
 
 
