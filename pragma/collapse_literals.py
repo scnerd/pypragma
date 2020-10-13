@@ -29,6 +29,14 @@ class CollapseTransformer(TrackedContextTransformer):
     def visit_Subscript(self, node):
         return self.resolve_literal(self.generic_visit(node))
 
+    def visit_Assign(self, node):
+        res = self.resolve_literal(self.generic_visit(node))
+        return super().visit_Assign(res)
+
+    def visit_AugAssign(self, node):
+        res = self.resolve_literal(self.generic_visit(node))
+        return super().visit_AugAssign(res)
+
     def visit_Call(self, node):
         node = self.generic_visit(node)
         try:

@@ -423,3 +423,31 @@ class TestCollapseLiterals(PragmaTest):
 
         self.assertSourceEqual(f, result)
         self.assertEqual(f(), 4)
+
+    def test_assignment_slice(self):
+        i=2
+        @pragma.collapse_literals
+        def f1(x):
+            x[i] = 1
+        result = '''
+        def f1(x):
+            x[2] = 1
+        '''
+        self.assertSourceEqual(f1, result)
+
+        @pragma.collapse_literals
+        def f2(x):
+            j = 1
+            x[j] += 1
+        result = '''
+        def f2(x):
+            j = 1
+            x[1] += 1
+        '''
+        self.assertSourceEqual(f2, result)
+
+        trial = [10, 20, 30]
+        f1(trial)
+        self.assertEqual(trial, [10, 20, 1])
+        f2(trial)
+        self.assertEqual(trial, [10, 21, 1])
