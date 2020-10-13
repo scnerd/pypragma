@@ -137,6 +137,20 @@ class TestCollapseLiterals(PragmaTest):
 
             self.assertIsInstance(w[-1].category(), UserWarning)
 
+    def test_side_effects_0cause(self):
+        # This will never fail, but it causes other tests to fail
+        # if it incorrectly moves 'a' from the closure to the module globals
+        a = 0
+        @pragma.collapse_literals
+        def f():
+            x = a
+
+    def test_side_effects_1effect(self):
+        @pragma.collapse_literals
+        def f2():
+            for a in range(3): # failure occurs when this is interpreted as "for 0 in range(3)"
+                x = a
+
     def test_conditional_erasure(self):
         @pragma.collapse_literals
         def f(y):

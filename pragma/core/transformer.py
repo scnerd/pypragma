@@ -365,7 +365,7 @@ def make_function_transformer(transformer_type, name, description, **transformer
         def inner(f):
             f_mod, f_body, f_file = function_ast(f)
             # Grab function globals
-            glbls = f.__globals__
+            glbls = f.__globals__.copy()
             # Grab function closure variables
             if isinstance(f.__closure__, tuple):
                 glbls.update({k: v.cell_contents for k, v in zip(f.__code__.co_freevars, f.__closure__)})
