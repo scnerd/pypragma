@@ -70,6 +70,25 @@ class TestDeindex(PragmaTest):
 
         self.assertSourceEqual(f, result)
 
+    def test_enumerate(self):
+        v = [0, 3, object()]
+        nv = namedtuple('nttyp', 'a,b,c')(*v)
+
+        def f():
+            for i, elem in enumerate(v):
+                yield i, elem
+        result = dedent('''
+        def f():
+            yield 0, 0
+            yield 1, 3
+            yield 2, v_2
+        ''')
+        f_list = pragma.unroll(pragma.deindex(v, 'v', collapse_iterables=True)(f))
+        f_namedtuple = pragma.unroll(pragma.deindex(nv, 'v', collapse_iterables=True)(f))
+
+        self.assertSourceEqual(f_list, result)
+        self.assertSourceEqual(f_namedtuple, result)
+
     def test_with_variable_indices(self):
         v = [object(), object(), object()]
 
@@ -107,7 +126,6 @@ class TestDeindex(PragmaTest):
     def test_dynamic_function_calls(self):
         funcs = [lambda x: x, lambda x: x ** 2, lambda x: x ** 3]
 
-        # TODO: Support enumerate transparently
         # TODO: Support tuple assignment in loop transparently
 
         @pragma.deindex(funcs, 'funcs')
