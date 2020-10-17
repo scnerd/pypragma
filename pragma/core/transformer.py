@@ -32,6 +32,17 @@ def function_ast(f):
     except (KeyError, AttributeError):  # pragma: nocover
         f_file = ''
 
+    try:
+        found = inspect.findsource(f)
+    except IndexError as err:  # pragma: nocover
+        raise IOError((
+            'Discrepancy in number of decorator @magics expected by '
+            'inspect vs. __code__.co_firstlineno\n'
+            '{} in {}.\n'
+            'Try using the decorators after declaring the function'
+            'instead of @-magic').format(f, f_file)
+        ) from err
+
     root = ast.parse(textwrap.dedent(inspect.getsource(f)), f_file)
     return root, root.body[0].body, f_file
 
@@ -347,7 +358,7 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
 def make_function_transformer(transformer_type, name, description, **transformer_kwargs):
     @optional_argument_decorator
     @magic_contract
-    def transform(return_source=False, save_source=True, function_globals=None, **kwargs):
+    def transform(return_source=False, save_source=True, function_globals=None, collapse_iterables=False, explicit_only=False, **kwargs):
         """
         :param return_source: Returns the transformed function's source code instead of compiling it
         :type return_source: bool
@@ -355,6 +366,10 @@ def make_function_transformer(transformer_type, name, description, **transformer
         :type save_source: bool
         :param function_globals: Overridden global name assignments to use when processing the function
         :type function_globals: dict|None
+        :param collapse_iterables: Collapse iterable types
+        :type collapse_iterables: bool
+        :param explicit_only: Whether to use global variables or just keyword and function_globals in the replacement context
+        :type explicit_only: bool
         :param kwargs: Any other environmental variables to provide during unrolling
         :type kwargs: dict
         :return: The transformed function, or its source code if requested
@@ -364,16 +379,23 @@ def make_function_transformer(transformer_type, name, description, **transformer
         @magic_contract(f='Callable', returns='Callable|str')
         def inner(f):
             f_mod, f_body, f_file = function_ast(f)
-            # Grab function globals
-            glbls = f.__globals__.copy()
-            # Grab function closure variables
-            if isinstance(f.__closure__, tuple):
-                glbls.update({k: v.cell_contents for k, v in zip(f.__code__.co_freevars, f.__closure__)})
+            if not explicit_only:
+                # Grab function globals
+                glbls = f.__globals__.copy()
+                # Grab function closure variables
+                if isinstance(f.__closure__, tuple):
+                    glbls.update({k: v.cell_contents for k, v in zip(f.__code__.co_freevars, f.__closure__)})
+            else:
+                # Initialize empty context
+                if function_globals is None and len(kwargs) == 0:
+                    log.warning("No global context nor function context. No collapse will occur")
+                glbls = dict()
             # Apply manual globals override
             if function_globals is not None:
                 glbls.update(function_globals)
             # print({k: v for k, v in glbls.items() if k not in globals()})
             trans = transformer_type(DictStack(glbls, kwargs), **transformer_kwargs)
+            trans.collapse_iterables = collapse_iterables
             f_mod.body[0].decorator_list = []
             f_mod = trans.visit(f_mod)
             # print(astor.dump_tree(f_mod))
@@ -390,14 +412,19 @@ def make_function_transformer(transformer_type, name, description, **transformer
             else:
                 f_mod = ast.fix_missing_locations(f_mod)
                 if save_source:
-                    temp = tempfile.NamedTemporaryFile('w', delete=True)
+                    temp = tempfile.NamedTemporaryFile('w', delete=False)
                     f_file = temp.name
                 exec(compile(f_mod, f_file, 'exec'), glbls)
                 func = glbls[f_mod.body[0].name]
                 if save_source:
                     func.__tempfile__ = temp
+                    # When there are other decorators, the co_firstlineno of *some* python distributions gets confused
+                    # and thinks they will be there even when they are not written to the file, causing readline overflow
+                    # So we put some empty lines to make them align
+                    temp.write('\n' * func.__code__.co_firstlineno)
                     temp.write(source)
                     temp.flush()
+                    temp.close()
                 return func
 
         return inner

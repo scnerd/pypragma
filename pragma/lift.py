@@ -144,19 +144,17 @@ class lift:
         new_kws = [ast.arg(arg=k, annotation=self._annotate(k, v)) for k, v in free_vars]
         new_kw_defaults = [self._get_default(k, v) for k, v in free_vars]
 
+        # python 3.8 introduced a new signature for ast.arguments.__init__, so use whatever they use
+        ast_arguments_dict = func_def.args.__dict__
+        ast_arguments_dict['kwonlyargs'] += new_kws
+        ast_arguments_dict['kw_defaults'] += new_kw_defaults
+
         new_func_def = ast.FunctionDef(
             name=func_def.name,
             body=f_body,
             decorator_list=[],  # func_def.decorator_list,
             returns=func_def.returns,
-            args=ast.arguments(
-                args=func_def.args.args,
-                vararg=func_def.args.vararg,
-                kwarg=func_def.args.kwarg,
-                defaults=func_def.args.defaults,
-                kwonlyargs=func_def.args.kwonlyargs + new_kws,
-                kw_defaults=func_def.args.kw_defaults + new_kw_defaults
-            )
+            args=ast.arguments(**ast_arguments_dict)
         )
 
         f_mod.body[0] = new_func_def

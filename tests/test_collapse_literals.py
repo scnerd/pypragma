@@ -42,6 +42,27 @@ class TestCollapseLiterals(PragmaTest):
         self.assertSourceEqual(f, result)
         self.assertEqual(f(), 2)
 
+    def test_repeated_decoration(self):
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        def f():
+            return 2
+        f = pragma.collapse_literals(f)
+
+        result = '''
+        def f():
+            return 2
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(), 2)
+
     def test_vars(self):
         @pragma.collapse_literals
         def f():
@@ -345,13 +366,51 @@ class TestCollapseLiterals(PragmaTest):
         def f():
             print(len(a))
             print(sum(a))
+            print(-a[0])
+            print(a[0] + a[1])
             print(a)
 
         result = '''
         def f():
             print(4)
             print(10)
+            print(-1)
+            print(3)
             print(a)
+        '''
+
+        self.assertSourceEqual(f, result)
+
+    def test_iterable_option(self):
+        a = [1, 2, 3, 4]
+
+        @pragma.collapse_literals(collapse_iterables=True)
+        def f():
+            x = a
+
+        result = '''
+        def f():
+            x = [1, 2, 3, 4]
+        '''
+
+        self.assertSourceEqual(f, result)
+
+    def test_indexable_operations(self):
+        dct = dict(a=1, b=2, c=3, d=4)
+
+        @pragma.collapse_literals
+        def f():
+            print(len(dct))
+            print(-dct['a'])
+            print(dct['a'] + dct['b'])
+            print(dct)
+
+        result = '''
+        def f():
+            print(4)
+            print(-1)
+            print(3)
+            print(dct)
         '''
 
         self.assertSourceEqual(f, result)
@@ -482,3 +541,26 @@ class TestCollapseLiterals(PragmaTest):
         '''
         self.assertSourceEqual(f, result)
         self.assertSourceEqual(pragma.collapse_literals(f), result)
+
+    def test_explicit_collapse(self):
+        a = 2
+        b = 3
+        @pragma.collapse_literals(explicit_only=True, b=b)
+        def f():
+            x = a
+            y = b
+        result = '''
+        def f():
+            x = a
+            y = 3
+        '''
+        self.assertSourceEqual(f, result)
+
+        @pragma.collapse_literals(explicit_only=True)
+        def f():
+            x = a
+        result = '''
+        def f():
+            x = a
+        '''
+        self.assertSourceEqual(f, result)
