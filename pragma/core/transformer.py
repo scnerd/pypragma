@@ -358,7 +358,7 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
 def make_function_transformer(transformer_type, name, description, **transformer_kwargs):
     @optional_argument_decorator
     @magic_contract
-    def transform(return_source=False, save_source=True, function_globals=None, **kwargs):
+    def transform(return_source=False, save_source=True, function_globals=None, collapse_iterables=False, explicit_only=False, **kwargs):
         """
         :param return_source: Returns the transformed function's source code instead of compiling it
         :type return_source: bool
@@ -366,6 +366,10 @@ def make_function_transformer(transformer_type, name, description, **transformer
         :type save_source: bool
         :param function_globals: Overridden global name assignments to use when processing the function
         :type function_globals: dict|None
+        :param collapse_iterables: Collapse iterable types
+        :type collapse_iterables: bool
+        :param explicit_only: Whether to use global variables or just keyword and function_globals in the replacement context
+        :type explicit_only: bool
         :param kwargs: Any other environmental variables to provide during unrolling
         :type kwargs: dict
         :return: The transformed function, or its source code if requested
@@ -375,16 +379,23 @@ def make_function_transformer(transformer_type, name, description, **transformer
         @magic_contract(f='Callable', returns='Callable|str')
         def inner(f):
             f_mod, f_body, f_file = function_ast(f)
-            # Grab function globals
-            glbls = f.__globals__.copy()
-            # Grab function closure variables
-            if isinstance(f.__closure__, tuple):
-                glbls.update({k: v.cell_contents for k, v in zip(f.__code__.co_freevars, f.__closure__)})
+            if not explicit_only:
+                # Grab function globals
+                glbls = f.__globals__.copy()
+                # Grab function closure variables
+                if isinstance(f.__closure__, tuple):
+                    glbls.update({k: v.cell_contents for k, v in zip(f.__code__.co_freevars, f.__closure__)})
+            else:
+                # Initialize empty context
+                if function_globals is None and len(kwargs) == 0:
+                    log.warning("No global context nor function context. No collapse will occur")
+                glbls = dict()
             # Apply manual globals override
             if function_globals is not None:
                 glbls.update(function_globals)
             # print({k: v for k, v in glbls.items() if k not in globals()})
             trans = transformer_type(DictStack(glbls, kwargs), **transformer_kwargs)
+            trans.collapse_iterables = collapse_iterables
             f_mod.body[0].decorator_list = []
             f_mod = trans.visit(f_mod)
             # print(astor.dump_tree(f_mod))

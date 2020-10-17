@@ -381,6 +381,20 @@ class TestCollapseLiterals(PragmaTest):
 
         self.assertSourceEqual(f, result)
 
+    def test_iterable_option(self):
+        a = [1, 2, 3, 4]
+
+        @pragma.collapse_literals(collapse_iterables=True)
+        def f():
+            x = a
+
+        result = '''
+        def f():
+            x = [1, 2, 3, 4]
+        '''
+
+        self.assertSourceEqual(f, result)
+
     def test_indexable_operations(self):
         dct = dict(a=1, b=2, c=3, d=4)
 
@@ -468,3 +482,27 @@ class TestCollapseLiterals(PragmaTest):
 
         self.assertSourceEqual(f, result)
         self.assertEqual(f(), 4)
+
+
+    def test_explicit_collapse(self):
+        a = 2
+        b = 3
+        @pragma.collapse_literals(explicit_only=True, b=b)
+        def f():
+            x = a
+            y = b
+        result = '''
+        def f():
+            x = a
+            y = 3
+        '''
+        self.assertSourceEqual(f, result)
+
+        @pragma.collapse_literals(explicit_only=True)
+        def f():
+            x = a
+        result = '''
+        def f():
+            x = a
+        '''
+        self.assertSourceEqual(f, result)
