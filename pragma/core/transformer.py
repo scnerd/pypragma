@@ -34,7 +34,7 @@ def function_ast(f):
 
     try:
         found = inspect.findsource(f)
-    except IndexError as err:
+    except IndexError as err:  # pragma: nocover
         raise IOError((
             'Discrepancy in number of decorator @magics expected by '
             'inspect vs. __code__.co_firstlineno\n'
@@ -376,7 +376,7 @@ def make_function_transformer(transformer_type, name, description, **transformer
         def inner(f):
             f_mod, f_body, f_file = function_ast(f)
             # Grab function globals
-            glbls = f.__globals__
+            glbls = f.__globals__.copy()
             # Grab function closure variables
             if isinstance(f.__closure__, tuple):
                 glbls.update({k: v.cell_contents for k, v in zip(f.__code__.co_freevars, f.__closure__)})

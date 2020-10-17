@@ -158,6 +158,47 @@ class TestCollapseLiterals(PragmaTest):
 
             self.assertIsInstance(w[-1].category(), UserWarning)
 
+    def test_side_effects_0cause(self):
+        # This will never fail, but it causes other tests to fail
+        # if it incorrectly moves 'a' from the closure to the module globals
+        a = 0
+        @pragma.collapse_literals
+        def f():
+            x = a
+
+    def test_side_effects_1effect(self):
+        @pragma.collapse_literals
+        def f2():
+            for a in range(3): # failure occurs when this is interpreted as "for 0 in range(3)"
+                x = a
+
+    def test_iteration_variable(self):
+        # global glbvar  # TODO: Uncommenting should lead to a descriptive error
+        glbvar = 0
+
+        # glbvar in <locals> is recognized as in the __closure__ of f1
+        @pragma.collapse_literals
+        def f1():
+            x = glbvar
+        result = '''
+        def f1():
+            x = 0
+        '''
+        self.assertSourceEqual(f1, result)
+
+        # glbvar in <locals> is recognized as NOT in the __closure__ of f2
+        # but, if glbvar is in __globals__, it fails (and maybe should)
+        @pragma.collapse_literals
+        def f2():
+            for glbvar in range(3):
+                x = glbvar
+        result = '''
+        def f2():
+            for glbvar in range(3):
+                x = glbvar
+        '''
+        self.assertSourceEqual(f2, result)
+
     def test_conditional_erasure(self):
         @pragma.collapse_literals
         def f(y):
