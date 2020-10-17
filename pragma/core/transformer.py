@@ -34,7 +34,7 @@ def function_ast(f):
 
     try:
         found = inspect.findsource(f)
-    except IndexError as err:
+    except IndexError as err:  # pragma: nocover
         raise IOError((
             'Discrepancy in number of decorator @magics expected by '
             'inspect vs. __code__.co_firstlineno\n'
