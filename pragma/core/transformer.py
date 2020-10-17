@@ -30,6 +30,17 @@ def function_ast(f):
     except (KeyError, AttributeError):  # pragma: nocover
         f_file = ''
 
+    try:
+        found = inspect.findsource(f)
+    except IndexError as err:
+        raise IOError((
+            'Discrepancy in number of decorator @magics expected by '
+            'inspect vs. __code__.co_firstlineno\n'
+            '{} in {}.\n'
+            'Try using the decorators after declaring the function'
+            'instead of @-magic').format(f, f_file)
+        ) from err
+
     root = ast.parse(textwrap.dedent(inspect.getsource(f)), f_file)
     return root, root.body[0].body, f_file
 
@@ -382,14 +393,19 @@ def make_function_transformer(transformer_type, name, description, **transformer
             else:
                 f_mod = ast.fix_missing_locations(f_mod)
                 if save_source:
-                    temp = tempfile.NamedTemporaryFile('w', delete=True)
+                    temp = tempfile.NamedTemporaryFile('w', delete=False)
                     f_file = temp.name
                 exec(compile(f_mod, f_file, 'exec'), glbls)
                 func = glbls[f_mod.body[0].name]
                 if save_source:
                     func.__tempfile__ = temp
+                    # When there are other decorators, the co_firstlineno of *some* python distributions gets confused
+                    # and thinks they will be there even when they are not written to the file, causing readline overflow
+                    # So we put some empty lines to make them align
+                    temp.write('\n' * func.__code__.co_firstlineno)
                     temp.write(source)
                     temp.flush()
+                    temp.close()
                 return func
 
         return inner
