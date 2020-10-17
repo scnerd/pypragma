@@ -483,6 +483,64 @@ class TestCollapseLiterals(PragmaTest):
         self.assertSourceEqual(f, result)
         self.assertEqual(f(), 4)
 
+    def test_assignment_slice(self):
+        i=2
+        @pragma.collapse_literals
+        def f1(x):
+            x[i] = 1
+        result = '''
+        def f1(x):
+            x[2] = 1
+        '''
+        self.assertSourceEqual(f1, result)
+
+        @pragma.collapse_literals
+        def f2(x):
+            j = 1
+            x[j] += 1
+        result = '''
+        def f2(x):
+            j = 1
+            x[1] += 1
+        '''
+        self.assertSourceEqual(f2, result)
+
+        trial = [10, 20, 30]
+        f1(trial)
+        self.assertEqual(trial, [10, 20, 1])
+        f2(trial)
+        self.assertEqual(trial, [10, 21, 1])
+
+    def test_collapse_slice_with_assign(self):
+        a = 1
+        @pragma.collapse_literals
+        def f():
+            x = object()
+            x[a:4] = 0
+            x = 2
+            x[x] = 0
+        result = '''
+        def f():
+            x = object()
+            x[1:4] = 0
+            x = 2
+            x[2] = 0
+        '''
+        self.assertSourceEqual(f, result)
+
+        @pragma.collapse_literals
+        def f():
+            x = [1, 2, 0]
+            x[x[x[0]]] = 3  # transformer loses certainty in literal value of x
+            x[x[x[0]]] = 4  # so it is not collapsed here, but this is a nonsensical use case after all
+        result = '''
+        def f():
+            x = [1, 2, 0]
+            x[2] = 3
+            x[x[x[0]]] = 4
+        '''
+        self.assertSourceEqual(f, result)
+        self.assertSourceEqual(pragma.collapse_literals(f), result)
 
     def test_explicit_collapse(self):
         a = 2

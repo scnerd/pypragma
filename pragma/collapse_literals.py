@@ -36,6 +36,33 @@ class CollapseTransformer(TrackedContextTransformer):
     def visit_Subscript(self, node):
         return self.resolve_literal(self.generic_visit(node))
 
+    def _visit_AssignSubscriptTarget(self, target):
+        def resolve_attr_of_slice(attr):
+            old_val = getattr(target.slice, attr)
+            if old_val is None:
+                return
+            new_val = self.resolve_literal(self.generic_visit(old_val))
+            setattr(target.slice, attr, new_val)
+        if isinstance(target.slice, ast.Index):
+            resolve_attr_of_slice('value')
+        elif isinstance(target.slice, ast.Slice):
+            resolve_attr_of_slice('lower')
+            resolve_attr_of_slice('upper')
+            resolve_attr_of_slice('step')
+        else:
+            raise TypeError(type(target.slice))
+
+    def visit_Assign(self, node):
+        for it, target in enumerate(node.targets):
+            if isinstance(target, ast.Subscript):
+                self._visit_AssignSubscriptTarget(target)
+        return super().visit_Assign(node)
+
+    def visit_AugAssign(self, node):
+        if isinstance(node.target, ast.Subscript):
+            self._visit_AssignSubscriptTarget(node.target)
+        return super().visit_AugAssign(node)
+
     def visit_Call(self, node):
         node = self.generic_visit(node)
         try:
