@@ -497,3 +497,12 @@ class TestCollapseLiterals(PragmaTest):
             y = 3
         '''
         self.assertSourceEqual(f, result)
+
+        @pragma.collapse_literals(explicit_only=True)
+        def f():
+            x = a
+        result = '''
+        def f():
+            x = a
+        '''
+        self.assertSourceEqual(f, result)
