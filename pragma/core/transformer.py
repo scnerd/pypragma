@@ -393,7 +393,7 @@ def make_function_transformer(transformer_type, name, description, **transformer
             else:
                 f_mod = ast.fix_missing_locations(f_mod)
                 if save_source:
-                    temp = tempfile.NamedTemporaryFile('w', delete=True)
+                    temp = tempfile.NamedTemporaryFile('w', delete=False)
                     f_file = temp.name
                 exec(compile(f_mod, f_file, 'exec'), glbls)
                 func = glbls[f_mod.body[0].name]
@@ -405,6 +405,7 @@ def make_function_transformer(transformer_type, name, description, **transformer
                     temp.write('\n' * func.__code__.co_firstlineno)
                     temp.write(source)
                     temp.flush()
+                    temp.close()
                 return func
 
         return inner
