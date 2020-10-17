@@ -21,6 +21,8 @@ safe_new_contract('iterable', _is_iterable)
 safe_new_contract('indexable', _is_indexable)
 safe_new_contract('literal', 'int|float|str|bool|tuple|list|None')
 for name, tp in inspect.getmembers(ast, inspect.isclass):
+    if name[0] == '_':  # python 3.8 added ast._AST which pycontracts does not like
+        continue
     safe_new_contract(name, tp)
 
 # Astor tries to get fancy by failing nicely, but in doing so they fail when traversing non-AST type node properties.
