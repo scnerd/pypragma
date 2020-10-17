@@ -38,10 +38,18 @@ def resolve_name_or_attribute(node, ctxt):
     elif isinstance(node, ast.Attribute):
         base_obj = resolve_name_or_attribute(node.value, ctxt)
         if not isinstance(base_obj, ast.AST):
-            return getattr(base_obj, node.attr, node)
-        else:
-            log.debug("Could not resolve '{}.{}'".format(node.value, node.attr))
-            return node
+            try:
+                type_attribute = getattr(type(base_obj), node.attr)
+            except AttributeError:
+                type_attribute = None
+            type_is_tuple = issubclass(type(base_obj), tuple)  # tuples are readonly
+            if not isinstance(type_attribute, property) or type_is_tuple:
+                try:
+                    return getattr(base_obj, node.attr)
+                except AttributeError:
+                    log.debug("Cannot get attribute '{}' of {}".format(node.attr, base_obj))
+        log.debug("Could not resolve '{}.{}'".format(node.value, node.attr))
+        return node
     else:
         return node
 

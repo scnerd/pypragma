@@ -557,6 +557,15 @@ class TestCollapseLiterals(PragmaTest):
         '''
         self.assertSourceEqual(f, result)
 
+        @pragma.collapse_literals(explicit_only=True)
+        def f():
+            x = a
+        result = '''
+        def f():
+            x = a
+        '''
+        self.assertSourceEqual(f, result)
+
     def test_namedtuple_literal_attribute(self):
         a = [1, 2, 3, object()]  # heterogeneous types in sequence
         nttyp = namedtuple('nttyp', 'w,x,y,z')
@@ -597,12 +606,50 @@ class TestCollapseLiterals(PragmaTest):
             q = [0, 0]
             r = 4
         '''
+        self.assertSourceEqual(f, result)
 
-        @pragma.collapse_literals(explicit_only=True)
+    def test_property(self):
+        class UserKlass:
+            def __init__(self, quack):
+                self.quack = quack
+                self._bark = 0
+            @property
+            def bark(self):
+                self._bark += 1
+                return self._bark
+
+        oa = UserKlass([0, 0])
+
+        @pragma.collapse_literals
         def f():
-            x = a
+            q = oa.quack
+            r = oa.bark
         result = '''
         def f():
-            x = a
+            q = [0, 0]
+            r = oa.bark
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_tuple_subclass(self):
+        class UserTuple(tuple):
+            def __init__(self, args):
+                super().__init__()
+                self._bark = 0
+            @property
+            def bark(self):
+                self._bark += 1
+                return self._bark
+
+        oa = UserTuple([0, 0])
+
+        @pragma.collapse_literals
+        def f():
+            q = oa
+            r = oa.bark
+        result = '''
+        def f():
+            q = 0, 0
+            r = oa.bark
         '''
         self.assertSourceEqual(f, result)
