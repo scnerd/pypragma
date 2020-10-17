@@ -40,6 +40,27 @@ class TestCollapseLiterals(PragmaTest):
         ''')
         self.assertEqual(f.strip(), result.strip())
 
+    def test_repeated_decoration(self):
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        @pragma.collapse_literals
+        def f():
+            return 2
+        f = pragma.collapse_literals(f)
+
+        result = '''
+        def f():
+            return 2
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertEqual(f(), 2)
+
     def test_vars(self):
         @pragma.collapse_literals(return_source=True)
         def f():
