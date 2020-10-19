@@ -42,8 +42,7 @@ def resolve_name_or_attribute(node, ctxt):
                 type_attribute = getattr(type(base_obj), node.attr)
             except AttributeError:
                 type_attribute = None
-            type_is_tuple = issubclass(type(base_obj), tuple)  # tuples are readonly
-            if not isinstance(type_attribute, property) or type_is_tuple:
+            if not isinstance(type_attribute, property):
                 try:
                     return getattr(base_obj, node.attr)
                 except AttributeError:

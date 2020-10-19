@@ -566,25 +566,27 @@ class TestCollapseLiterals(PragmaTest):
         '''
         self.assertSourceEqual(f, result)
 
-    def test_namedtuple_literal_attribute(self):
-        a = [1, 2, 3, object()]  # heterogeneous types in sequence
-        nttyp = namedtuple('nttyp', 'w,x,y,z')
+    def test_namedtuple_without_deindex(self):
+        # See test_deindex::test_with_namedtuple for comparison
+        a = [1, 2., object()]  # heterogeneous types in sequence
+        nttyp = namedtuple('nttyp', 'x,y,z')
         na = nttyp(*a)
 
         @pragma.collapse_literals
         def f():
-            q = na[2]
-            r = na.y
+            q = na[1]  # getitem(literal, literal) -> literal
+            r = na.y  # property.get(literal, literal) -X literal
             s = 0
-            if na.y == na[2]:
+            if na.y == na[1]:
                 s = 1
             t = na.z  # the result is neither literal nor typeable
         result = '''
         def f():
-            q = 3
-            r = 3
+            q = 2.0
+            r = na.y
             s = 0
-            s = 1
+            if na.y == 2.0:
+                s = 1
             t = na.z
         '''
         self.assertSourceEqual(f, result)
@@ -599,7 +601,7 @@ class TestCollapseLiterals(PragmaTest):
 
         @pragma.collapse_literals
         def f():
-            q = oa.quack
+            q = oa.quack  # getattr(literal, literal) -> literal
             r = ob.quack
         result = '''
         def f():
@@ -643,13 +645,15 @@ class TestCollapseLiterals(PragmaTest):
 
         oa = UserTuple([0, 0])
 
-        @pragma.collapse_literals
+        @pragma.collapse_literals(collapse_iterables=True)
         def f():
             q = oa
             r = oa.bark
+            s = oa[0]
         result = '''
         def f():
             q = 0, 0
             r = oa.bark
+            s = 0
         '''
         self.assertSourceEqual(f, result)

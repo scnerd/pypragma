@@ -170,26 +170,35 @@ class TestDeindex(PragmaTest):
         self.assertSourceEqual(f, result)
 
     def test_with_namedtuple(self):
+        # See test_collapse_literals::test_namedtuple_without_deindex for comparison
         a = [1, 2., object()]  # heterogeneous types in sequence
         nttyp = namedtuple('nttyp', 'x,y,z')
         na = nttyp(*a)
 
         @pragma.deindex(na, 'na')
         def f():
-            yield na.x  # Attribute -> literal Name -X literal Number
-            yield na[1]
-            yield na.z  # This will become typeable
+            q = na[1]  # getitem(name, literal) -> reference - (roundtrip) -> literal
+            r = na.y  # property.get(name, literal) -> reference - (roundtrip) -> literal
+            s = 0
+            if na.y == na[1]:
+                s = 1
+            t = na.z  # the result is neither literal nor typeable
         result = '''
         def f():
-            yield na_0
-            yield na_1
-            yield na_2
+            q = na_1
+            r = na_1
+            s = 0
+            if 1:
+                s = 1
+            t = na_2
         '''
         roundtrip_result = '''
         def f():
-            yield 1
-            yield 2.0
-            yield na_2
+            q = 2.0
+            r = 2.0
+            s = 0
+            s = 1
+            t = na_2
         '''
         self.assertSourceEqual(f, result)
         self.assertSourceEqual(pragma.collapse_literals(f), roundtrip_result)
