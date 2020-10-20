@@ -15,6 +15,13 @@ _builtin_funcs = inspect.getmembers(builtins, lambda o: callable(o))
 pure_functions = {func for name, func in _builtin_funcs} - {print, delattr, exec, eval, input, open, setattr, super}
 
 
+# In python 3.8, namedtuple accessors changed from properties to low-level _tuplegetter objects
+try:
+    from _collections import _tuplegetter
+    is_property = lambda attr: isinstance(attr, (property, _tuplegetter))
+except ImportError:
+    is_property = lambda attr: isinstance(attr, property)
+
 @_log_call
 @magic_contract
 def resolve_name_or_attribute(node, ctxt):
@@ -42,7 +49,7 @@ def resolve_name_or_attribute(node, ctxt):
                 type_attribute = getattr(type(base_obj), node.attr)
             except AttributeError:
                 type_attribute = None
-            if not isinstance(type_attribute, property):
+            if not is_property(type_attribute):
                 try:
                     return getattr(base_obj, node.attr)
                 except AttributeError:
