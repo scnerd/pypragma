@@ -8,6 +8,15 @@ from .collapse_literals import collapse_literals
 log = logging.getLogger(__name__)
 
 
+def _clone_propertyless(nt):
+    ''' Clones a namedtuple, replacing property accessors with literal references.
+        The return is otherwise an instance of the original namedtuple type with the same docstrings and methods
+        This assures pragma that dereferencing them will have no side effects
+    '''
+    new_nttype = type(nt.__class__.__name__ + '_propertyless', (type(nt), ), nt._asdict())
+    return new_nttype(*nt)
+
+
 # Directly reference elements of constant list, removing literal indexing into that list within a function
 @magic_contract
 def deindex(iterable, iterable_name, *args, **kwargs):
@@ -32,8 +41,10 @@ def deindex(iterable, iterable_name, *args, **kwargs):
         internal_iterable = tuple('{}_{}'.format(iterable_name, i) for i, val in enumerate(iterable))
         mapping = {internal_iterable[i]: val for i, val in enumerate(iterable)}
         ast_names = tuple(ast.Name(id=name, ctx=ast.Load()) for name in internal_iterable)
-        if hasattr(iterable, '_fields'):
-            kwargs[iterable_name] = type(iterable)(*ast_names)
+        if isinstance(iterable, tuple) and hasattr(iterable, '_fields'):  # Support namedtuples attribute access
+            ast_namedtuple = type(iterable)(*ast_names)
+            ast_propertyless = _clone_propertyless(ast_namedtuple)
+            kwargs[iterable_name] = ast_propertyless
         else:
             kwargs[iterable_name] = type(iterable)(ast_names)
 
