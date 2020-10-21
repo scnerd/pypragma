@@ -92,6 +92,13 @@ class UnrollTransformer(TrackedContextTransformer):
             raise NameError("'{}' not defined in context".format(node.id))
         return node
 
+    def visit_Subscript(self, node):
+        # resolve only if node is an ast.Name in our loop_vars
+        if (isinstance(node.value, ast.Name) and isinstance(node.value.ctx, ast.Load)
+                and self.loop_vars and node.value.id in set.union(*self.loop_vars)):
+            return self.resolve_literal(self.generic_visit(node))
+        return self.generic_visit(node)
+
 
 # Unroll literal loops
 unroll = make_function_transformer(UnrollTransformer, 'unroll', "Unrolls constant loops in the decorated function")

@@ -350,3 +350,32 @@ class TestUnroll(PragmaTest):
         '''
 
         self.assertSourceEqual(f, result)
+    def test_unroll_zip(self):
+        a = [1, 2]
+        b = [10, 20]
+
+        # assign multiple values
+        @pragma.unroll
+        def f():
+            for _a, _b in zip(a, b):
+                yield _a
+                yield _b
+
+        result = '''
+        def f():
+            yield 1
+            yield 10
+            yield 2
+            yield 20
+        '''
+        self.assertSourceEqual(f, result)
+
+        # assign to a single variable representing a tuple, then deindex
+        @pragma.unroll
+        def f():
+            for z in zip(a, b):
+                yield z[0]
+                yield z[1]
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f()), [1, 10, 2, 20])
