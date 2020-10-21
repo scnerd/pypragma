@@ -27,10 +27,17 @@ def deindex(iterable, iterable_name, *args, **kwargs):
     if hasattr(iterable, 'items'):  # Support dicts and the like
         internal_iterable = {k: '{}_{}'.format(iterable_name, k) for k, val in iterable.items()}
         mapping = {internal_iterable[k]: val for k, val in iterable.items()}
+        ast_iterable = {k: ast.Name(id=name, ctx=ast.Load()) for k, name in internal_iterable.items()}
     else:  # Support lists, tuples, and the like
-        internal_iterable = {i: '{}_{}'.format(iterable_name, i) for i, val in enumerate(iterable)}
+        internal_iterable = tuple('{}_{}'.format(iterable_name, i) for i, val in enumerate(iterable))
         mapping = {internal_iterable[i]: val for i, val in enumerate(iterable)}
-
-    kwargs[iterable_name] = {k: ast.Name(id=name, ctx=ast.Load()) for k, name in internal_iterable.items()}
+        ast_iterable = tuple(ast.Name(id=name, ctx=ast.Load()) for name in internal_iterable)
+    # attempt to make the ast_iterable the same type as the original, otherwise keep it the builtin type
+    try:
+        ast_iterable = type(iterable)(ast_iterable)
+    except:
+        pass
+    kwargs[iterable_name] = ast_iterable
+    mapping[iterable_name] = iterable
 
     return collapse_literals(*args, function_globals=mapping, **kwargs)

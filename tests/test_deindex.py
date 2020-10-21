@@ -69,6 +69,25 @@ class TestDeindex(PragmaTest):
 
         self.assertSourceEqual(f, result)
 
+    def test_with_iterable_collapse(self):
+        v = [0, 3, object()]
+
+        @pragma.deindex(v, 'v', collapse_iterables=True)
+        def f():
+            yield v
+
+        result = '''
+        def f():
+            yield [v_0, v_1, v_2]
+        '''
+        roundtrip_result = '''
+        def f():
+            yield [0, 3, v_2]
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertSourceEqual(pragma.collapse_literals(f), roundtrip_result)
+
     def test_with_variable_indices(self):
         v = [object(), object(), object()]
 
@@ -100,13 +119,33 @@ class TestDeindex(PragmaTest):
         '''
 
         self.assertSourceEqual(f, result)
+        d = {'a': 3, 'b': 4}  # should have no effect because the value of d was frozen at declaration time
         self.assertListEqual(list(f('a')), [1, 1])
         self.assertListEqual(list(f('b')), [1, 2])
+
+    def test_different_name(self):
+        d = {'a': 1, 'b': 2}
+
+        @pragma.deindex(d, 'PRAGMAd')
+        def f(x):
+            yield PRAGMAd['a']
+            yield PRAGMAd[x]
+            yield d[x]
+
+        result = '''
+        def f(x):
+            yield PRAGMAd_a
+            yield PRAGMAd[x]
+            yield d[x]
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f('a')), [1, 1, 1])
+        self.assertListEqual(list(f('b')), [1, 2, 2])
 
     def test_dynamic_function_calls(self):
         funcs = [lambda x: x, lambda x: x ** 2, lambda x: x ** 3]
 
-        # TODO: Support enumerate transparently
         # TODO: Support tuple assignment in loop transparently
 
         @pragma.deindex(funcs, 'funcs')

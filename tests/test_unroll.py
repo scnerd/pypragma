@@ -332,3 +332,21 @@ class TestUnroll(PragmaTest):
         '''
 
         self.assertSourceEqual(f, result)
+
+    def test_enumerate(self):
+        v = [0, 3, object()]
+
+        @pragma.unroll
+        @pragma.deindex(v, 'v', collapse_iterables=True)
+        def f():
+            for i, elem in enumerate(v):
+                yield i, elem
+
+        result = '''
+        def f():
+            yield 0, 0
+            yield 1, 3
+            yield 2, v_2
+        '''
+
+        self.assertSourceEqual(f, result)
