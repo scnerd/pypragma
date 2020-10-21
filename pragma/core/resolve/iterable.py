@@ -76,7 +76,7 @@ def _resolve_mappable_keysvaluesitems(node, ctxt):
     elif node.func.attr == 'items':
         return tuple(base_obj.items())
     else:
-        log.debug('Could not resolve {} of {} as map iterator'.format(node.func.attr, base_obj))
+        log.debug('Could not resolve {} of {} as map iterator'.format(node.func.attr, base_obj))  #  deepcode ignore W1202
         return node
 
 

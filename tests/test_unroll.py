@@ -1,7 +1,13 @@
+# file deepcode ignore E0602: Ignore undefined variables because they never go live if just converting function string
+# file deepcode ignore E0102: Ignore function names that are redefined, such as f(x)
 from textwrap import dedent
+from unittest import SkipTest
+import sys
 
 import pragma
 from .test_pragma import PragmaTest
+
+dict_order_maintained = (sys.version_info.minor >= 6)
 
 
 class TestUnroll(PragmaTest):

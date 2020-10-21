@@ -84,6 +84,41 @@ The ``unroll`` decorator accomplishes this by parsing the input function, perfor
         yield 2 + 1
         yield 2 + 2
 
+``unroll`` also supports tuple-target interation with ``enumerate``, ``zip``, and ``items``::
+
+    v = [1, 3, 5]
+
+    @pragma.unroll
+    def f():
+        for i, elem in enumerate(v):
+            yield i, elem
+
+    # ... Becomes ...
+
+    def f():
+        yield 0, 1
+        yield 1, 3
+        yield 2, 5
+
+When combined with ``deindex``, ``unroll`` can also handle cases where the values being iterated over are not literals. The decorators must be in this order (deindex being applied before unroll), and the ``collapse_iterables`` argument is necessary::
+
+    d = {'a': object(), 'b': object()}
+
+    @pragma.unroll
+    @pragma.deindex(d, 'd', collapse_iterables=True)
+    def f():
+        for k, v in d.items():
+            yield k
+            yield v
+
+    # ... Becomes ...
+
+    def f():
+        yield 'a'
+        yield d_a
+        yield 'b'
+        yield d_b
+
 Also supported are recognizing top-level breaks. Breaks inside conditionals aren't yet supported, though they could eventually be by combining unrolling with literal condition collapsing::
 
     @pragma.unroll

@@ -44,7 +44,7 @@ def deindex(iterable, iterable_name, *args, **kwargs):
     # attempt to make the ast_iterable the same type as the original, otherwise keep it the builtin type
     try:
         ast_iterable = type(iterable)(ast_iterable)
-    except:
+    except Exception:  #  deepcode ignore W0703: Generic exception
         pass
     kwargs[iterable_name] = ast_iterable
     mapping[iterable_name] = iterable

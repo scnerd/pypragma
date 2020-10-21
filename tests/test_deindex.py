@@ -1,3 +1,5 @@
+# file deepcode ignore E0602: Ignore undefined variables because they never go live if just converting function string
+# file deepcode ignore E0102: Ignore function names that are redefined, such as f(x)
 import inspect
 from textwrap import dedent
 
@@ -140,7 +142,7 @@ class TestDeindex(PragmaTest):
 
     def test_deindex_dict_special_keys(self):
         d = {(15, 20): 1, ('x', 1): 2, 'hyphen-key': 3, 1.25e3: 4, 'regular_key': 5}
-        keyhashes = [abs(hash(str(k))) for k in d.keys()]
+        keyhashes = [abs(hash(str(k))) for k in d]
 
         @pragma.deindex(d, 'd')
         def f(x):
@@ -164,25 +166,6 @@ class TestDeindex(PragmaTest):
         self.assertSourceEqual(f, result)
         self.assertListEqual(list(f((15, 20))), [1, 2, 3, 4, 5, 1])
         self.assertListEqual(list(f('hyphen-key')), [1, 2, 3, 4, 5, 3])
-
-    # def test_dict_nonliteral_keys(self):
-    #     d = {'a': 1, 'b': 2}
-
-    #     @pragma.deindex(d, 'd')
-    #     def f(x):
-    #         yield d['a']
-    #         yield d[x]
-
-    #     result = '''
-    #     def f(x):
-    #         yield d_a
-    #         yield d[x]
-    #     '''
-
-    #     self.assertSourceEqual(f, result)
-    #     d = {'a': 3, 'b': 4}  # should have no effect because the value of d was frozen at declaration time
-    #     self.assertListEqual(list(f('a')), [1, 1])
-    #     self.assertListEqual(list(f('b')), [1, 2])
 
     def test_different_name(self):
         d = {'a': 1, 'b': 2}
