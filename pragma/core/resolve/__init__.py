@@ -89,13 +89,13 @@ except ImportError:  # pragma: nocover
     float_types = (float,)
 
 primitive_types = tuple([str, bytes, bool, type(None)] + list(num_types) + list(float_types))
-iterable_types = (list, tuple)
+iterable_types = (list, tuple, dict)
 
 try:
     primitive_ast_types = (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Constant, ast.JoinedStr)
 except AttributeError:  # Python <3.6
     primitive_ast_types = (ast.Num, ast.Str, ast.Bytes, ast.NameConstant)
-iterable_ast_types = (ast.List, ast.Tuple)
+iterable_ast_types = (ast.List, ast.Tuple, ast.Dict)
 
 
 def make_binop(op):

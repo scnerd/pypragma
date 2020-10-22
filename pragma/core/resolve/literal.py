@@ -6,7 +6,7 @@ import warnings
 from miniutils import magic_contract
 
 from .. import _log_call, DictStack
-from . import CollapsableNode
+from . import CollapsableNode, primitive_ast_types, iterable_ast_types
 
 log = logging.getLogger(__name__)
 
@@ -92,6 +92,8 @@ def _resolve_literal(node, ctxt):
         return node.s
     elif isinstance(node, (ast.List, ast.Tuple, ast.Set)):
         return resolve_literal_list(node, ctxt)
+    elif isinstance(node, (ast.Dict)):
+        return resolve_literal_dict(node, ctxt)
     elif isinstance(node, ast.Index):
         return _resolve_literal(node.value, ctxt)
     elif isinstance(node, (ast.Slice, ast.ExtSlice)):
@@ -144,6 +146,23 @@ def resolve_literal_list(node, ctxt):
         return set(val)
     else:
         raise TypeError("Attempted to resolve {} as if it were a literal list, tuple, or set".format(node))
+
+
+@_log_call
+def resolve_literal_dict(node, ctxt):
+    """ Returns, if possible, the literal dict.
+        Only the keys must be literal for it to resolve
+    """
+    dct = {}
+    for k, v in zip(node.keys, node.values):
+        k = _resolve_literal(k, ctxt)
+        if isinstance(k, ast.AST):
+            return node
+        vres = _resolve_literal(v, ctxt)
+        if isinstance(vres, primitive_ast_types + iterable_ast_types):
+            v = vres
+        dct[k] = v
+    return dct
 
 
 @_log_call

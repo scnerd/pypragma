@@ -350,6 +350,74 @@ class TestUnroll(PragmaTest):
         '''
 
         self.assertSourceEqual(f, result)
+
+    def test_dict_items(self):
+        d = {'a': 1, 'b': 2}
+
+        @pragma.unroll
+        def f():
+            for k, v in d.items():
+                yield k
+                yield v
+
+        result = '''
+        def f():
+            yield 'a'
+            yield 1
+            yield 'b'
+            yield 2
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f()), ['a', 1, 'b', 2])
+
+    def test_nonliteral_dict_items(self):
+        d = {'a': object(), 'b': object()}
+
+        @pragma.unroll
+        @pragma.deindex(d, 'd', collapse_iterables=True)
+        def f():
+            for k, v in d.items():
+                yield k
+                yield v
+
+        result = '''
+        def f():
+            yield 'a'
+            yield d_a
+            yield 'b'
+            yield d_b
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f()), ['a', d['a'], 'b', d['b']])
+
+    def test_unroll_special_dict(self):
+        d = {(15, 20): 1, ('x', 1): 2, 'hyphen-key': 3, 1.25e3: 4, 'regular_key': 5}
+
+        @pragma.unroll
+        @pragma.deindex(d, 'd', collapse_iterables=True)
+        def f():
+            for k, v in d.items():
+                yield k
+                yield v
+
+        result = '''
+        def f():
+            yield 15, 20
+            yield 1
+            yield 'x', 1
+            yield 2
+            yield 'hyphen-key'
+            yield 3
+            yield 1250.0
+            yield 4
+            yield 'regular_key'
+            yield 5
+        '''
+
+        self.assertSourceEqual(f, result)
+
     def test_unroll_zip(self):
         a = [1, 2]
         b = [10, 20]

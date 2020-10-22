@@ -25,7 +25,16 @@ def deindex(iterable, iterable_name, *args, **kwargs):
     """
 
     if hasattr(iterable, 'items'):  # Support dicts and the like
-        internal_iterable = {k: '{}_{}'.format(iterable_name, k) for k, val in iterable.items()}
+        sanitized_map = {}
+        invalid_chars = [' ', '-', '+', '/', '\\', '.', '!', '@', '#', '$', '%', ':', '?']
+        for k in iterable.keys():
+            if isinstance(k, int):
+                sanitized_map[k] = k
+            elif isinstance(k, str) and not any(ic in k for ic in invalid_chars):
+                sanitized_map[k] = k
+            else:
+                sanitized_map[k] = abs(hash(str(k)))
+        internal_iterable = {k: '{}_{}'.format(iterable_name, sk) for k, sk in sanitized_map.items()}
         mapping = {internal_iterable[k]: val for k, val in iterable.items()}
         ast_iterable = {k: ast.Name(id=name, ctx=ast.Load()) for k, name in internal_iterable.items()}
     else:  # Support lists, tuples, and the like
