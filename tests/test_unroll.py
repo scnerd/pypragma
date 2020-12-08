@@ -352,6 +352,8 @@ class TestUnroll(PragmaTest):
         self.assertSourceEqual(f, result)
 
     def test_dict_items(self):
+        if not dict_order_maintained:
+            raise SkipTest()
         d = {'a': 1, 'b': 2}
 
         @pragma.unroll
@@ -372,6 +374,8 @@ class TestUnroll(PragmaTest):
         self.assertListEqual(list(f()), ['a', 1, 'b', 2])
 
     def test_nonliteral_dict_items(self):
+        if not dict_order_maintained:
+            raise SkipTest()
         d = {'a': object(), 'b': object()}
 
         @pragma.unroll
@@ -393,6 +397,8 @@ class TestUnroll(PragmaTest):
         self.assertListEqual(list(f()), ['a', d['a'], 'b', d['b']])
 
     def test_unroll_special_dict(self):
+        if not dict_order_maintained:
+            raise SkipTest()
         d = {(15, 20): 1, ('x', 1): 2, 'hyphen-key': 3, 1.25e3: 4, 'regular_key': 5}
 
         @pragma.unroll

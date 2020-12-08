@@ -13,6 +13,5 @@ setup(
     install_requires=[
         'miniutils',
         'astor',
-        'nose'
     ]
 )
