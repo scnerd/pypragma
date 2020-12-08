@@ -6,7 +6,7 @@ import warnings
 from miniutils import magic_contract
 
 from .. import _log_call, DictStack
-from . import CollapsableNode, primitive_ast_types, iterable_ast_types
+from . import CollapsableNode, primitive_types, primitive_ast_types, iterable_ast_types
 
 log = logging.getLogger(__name__)
 
@@ -174,8 +174,12 @@ def resolve_literal_subscript(node, ctxt):
             try:
                 if isinstance(indexable, dict):
                     indexable = {_resolve_literal(k, ctxt): v for k, v in indexable.items()}
-                # return _resolve_literal(indexable[slice], ctxt)
-                return indexable[slice]
+                item = indexable[slice]
+                res = _resolve_literal(item, ctxt)
+                if isinstance(res, primitive_types):
+                    return res
+                else:
+                    return item
             except (KeyError, IndexError):
                 log.debug("Cannot index {}[{}]".format(indexable, slice))
                 return node

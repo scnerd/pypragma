@@ -22,6 +22,21 @@ class TestDeindex(PragmaTest):
         self.assertSourceEqual(f, result)
         self.assertEqual(f(), sum(v))
 
+    def test_no_roundtrip(self):
+        v = {'a': 1, 'b': 2, 2: object()}
+
+        @pragma.deindex(v, 'v')
+        def f():
+            yield v['a']  # outside of an operation like " + ", this needs a double collapse, which now happens
+            return v['a'] + v['b'] + v[2]
+
+        result = '''
+        def f():
+            yield 1
+            return 3 + v_2
+        '''
+        self.assertSourceEqual(f, result)
+
     def test_with_objects(self):
         v = [object(), object(), object()]
 
@@ -114,17 +129,11 @@ class TestDeindex(PragmaTest):
 
         result = '''
         def f(x):
-            yield d_a
-            yield d[x]
-        '''
-        roundtrip_result = '''
-        def f(x):
             yield 1
             yield d[x]
         '''
 
         self.assertSourceEqual(f, result)
-        self.assertSourceEqual(pragma.collapse_literals(f), roundtrip_result)
         d = {'a': 3, 'b': 4}  # should have no effect because the value of d was frozen at declaration time
         self.assertListEqual(list(f('a')), [1, 1])
         self.assertListEqual(list(f('b')), [1, 2])
@@ -144,12 +153,6 @@ class TestDeindex(PragmaTest):
 
         result = '''
         def f(x):
-            {}
-            yield d_regular_key
-            yield d[x]
-        '''.format('\n            '.join('yield d_' + str(h) for h in keyhashes[:-1]))
-        roundtrip_result = '''
-        def f(x):
             yield 1
             yield 2
             yield 3
@@ -159,7 +162,6 @@ class TestDeindex(PragmaTest):
         '''
 
         self.assertSourceEqual(f, result)
-        self.assertSourceEqual(pragma.collapse_literals(f), roundtrip_result)
         self.assertListEqual(list(f((15, 20))), [1, 2, 3, 4, 5, 1])
         self.assertListEqual(list(f('hyphen-key')), [1, 2, 3, 4, 5, 3])
 
@@ -193,7 +195,7 @@ class TestDeindex(PragmaTest):
 
         result = '''
         def f(x):
-            yield PRAGMAd_a
+            yield 1
             yield PRAGMAd[x]
             yield d[x]
         '''
