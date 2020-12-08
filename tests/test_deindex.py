@@ -1,3 +1,5 @@
+# file deepcode ignore E0602: Ignore undefined variables because they never go live if just converting function string
+# file deepcode ignore E0102: Ignore function names that are redefined, such as f(x)
 import inspect
 from textwrap import dedent
 
@@ -21,6 +23,21 @@ class TestDeindex(PragmaTest):
 
         self.assertSourceEqual(f, result)
         self.assertEqual(f(), sum(v))
+
+    def test_no_roundtrip(self):
+        v = {'a': 1, 'b': 2, 2: object()}
+
+        @pragma.deindex(v, 'v')
+        def f():
+            yield v['a']  # outside of an operation like " + ", this needs a double collapse, which now happens
+            return v['a'] + v['b'] + v[2]
+
+        result = '''
+        def f():
+            yield 1
+            return 3 + v_2
+        '''
+        self.assertSourceEqual(f, result)
 
     def test_with_objects(self):
         v = [object(), object(), object()]
@@ -69,6 +86,25 @@ class TestDeindex(PragmaTest):
 
         self.assertSourceEqual(f, result)
 
+    def test_with_iterable_collapse(self):
+        v = [0, 3, object()]
+
+        @pragma.deindex(v, 'v', collapse_iterables=True)
+        def f():
+            yield v
+
+        result = '''
+        def f():
+            yield [v_0, v_1, v_2]
+        '''
+        roundtrip_result = '''
+        def f():
+            yield [0, 3, v_2]
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertSourceEqual(pragma.collapse_literals(f), roundtrip_result)
+
     def test_with_variable_indices(self):
         v = [object(), object(), object()]
 
@@ -85,7 +121,7 @@ class TestDeindex(PragmaTest):
 
         self.assertSourceEqual(f, result)
 
-    def test_dict(self):
+    def test_deindex_dict(self):
         d = {'a': 1, 'b': 2}
 
         @pragma.deindex(d, 'd')
@@ -95,18 +131,65 @@ class TestDeindex(PragmaTest):
 
         result = '''
         def f(x):
-            yield d_a
+            yield 1
             yield d[x]
         '''
 
         self.assertSourceEqual(f, result)
+        d = {'a': 3, 'b': 4}  # should have no effect because the value of d was frozen at declaration time
         self.assertListEqual(list(f('a')), [1, 1])
         self.assertListEqual(list(f('b')), [1, 2])
+
+    def test_deindex_dict_special_keys(self):
+        d = {(15, 20): 1, ('x', 1): 2, 'hyphen-key': 3, 1.25e3: 4, 'regular_key': 5}
+        keyhashes = [abs(hash(str(k))) for k in d]
+
+        @pragma.deindex(d, 'd')
+        def f(x):
+            yield d[(15, 20)]
+            yield d[('x', 1)]
+            yield d['hyphen-key']
+            yield d[1.25e3]
+            yield d['regular_key']
+            yield d[x]
+
+        result = '''
+        def f(x):
+            yield 1
+            yield 2
+            yield 3
+            yield 4
+            yield 5
+            yield d[x]
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f((15, 20))), [1, 2, 3, 4, 5, 1])
+        self.assertListEqual(list(f('hyphen-key')), [1, 2, 3, 4, 5, 3])
+
+    def test_different_name(self):
+        d = {'a': 1, 'b': 2}
+
+        @pragma.deindex(d, 'PRAGMAd')
+        def f(x):
+            yield PRAGMAd['a']
+            yield PRAGMAd[x]
+            yield d[x]
+
+        result = '''
+        def f(x):
+            yield 1
+            yield PRAGMAd[x]
+            yield d[x]
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f('a')), [1, 1, 1])
+        self.assertListEqual(list(f('b')), [1, 2, 2])
 
     def test_dynamic_function_calls(self):
         funcs = [lambda x: x, lambda x: x ** 2, lambda x: x ** 3]
 
-        # TODO: Support enumerate transparently
         # TODO: Support tuple assignment in loop transparently
 
         @pragma.deindex(funcs, 'funcs')

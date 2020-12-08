@@ -1,7 +1,13 @@
+# file deepcode ignore E0602: Ignore undefined variables because they never go live if just converting function string
+# file deepcode ignore E0102: Ignore function names that are redefined, such as f(x)
 from textwrap import dedent
+from unittest import SkipTest
+import sys
 
 import pragma
 from .test_pragma import PragmaTest
+
+dict_order_maintained = (sys.version_info.minor >= 6)
 
 
 class TestUnroll(PragmaTest):
@@ -332,3 +338,124 @@ class TestUnroll(PragmaTest):
         '''
 
         self.assertSourceEqual(f, result)
+
+    def test_enumerate(self):
+        v = [0, 3, object()]
+
+        @pragma.unroll
+        @pragma.deindex(v, 'v', collapse_iterables=True)
+        def f():
+            for i, elem in enumerate(v):
+                yield i, elem
+
+        result = '''
+        def f():
+            yield 0, 0
+            yield 1, 3
+            yield 2, v_2
+        '''
+
+        self.assertSourceEqual(f, result)
+
+    def test_dict_items(self):
+        if not dict_order_maintained:
+            raise SkipTest()
+        d = {'a': 1, 'b': 2}
+
+        @pragma.unroll
+        def f():
+            for k, v in d.items():
+                yield k
+                yield v
+
+        result = '''
+        def f():
+            yield 'a'
+            yield 1
+            yield 'b'
+            yield 2
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f()), ['a', 1, 'b', 2])
+
+    def test_nonliteral_dict_items(self):
+        if not dict_order_maintained:
+            raise SkipTest()
+        d = {'a': object(), 'b': object()}
+
+        @pragma.unroll
+        @pragma.deindex(d, 'd', collapse_iterables=True)
+        def f():
+            for k, v in d.items():
+                yield k
+                yield v
+
+        result = '''
+        def f():
+            yield 'a'
+            yield d_a
+            yield 'b'
+            yield d_b
+        '''
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f()), ['a', d['a'], 'b', d['b']])
+
+    def test_unroll_special_dict(self):
+        if not dict_order_maintained:
+            raise SkipTest()
+        d = {(15, 20): 1, ('x', 1): 2, 'hyphen-key': 3, 1.25e3: 4, 'regular_key': 5}
+
+        @pragma.unroll
+        @pragma.deindex(d, 'd', collapse_iterables=True)
+        def f():
+            for k, v in d.items():
+                yield k
+                yield v
+
+        result = '''
+        def f():
+            yield 15, 20
+            yield 1
+            yield 'x', 1
+            yield 2
+            yield 'hyphen-key'
+            yield 3
+            yield 1250.0
+            yield 4
+            yield 'regular_key'
+            yield 5
+        '''
+
+        self.assertSourceEqual(f, result)
+
+    def test_unroll_zip(self):
+        a = [1, 2]
+        b = [10, 20]
+
+        # assign multiple values
+        @pragma.unroll
+        def f():
+            for _a, _b in zip(a, b):
+                yield _a
+                yield _b
+
+        result = '''
+        def f():
+            yield 1
+            yield 10
+            yield 2
+            yield 20
+        '''
+        self.assertSourceEqual(f, result)
+
+        # assign to a single variable representing a tuple, then deindex
+        @pragma.unroll
+        def f():
+            for z in zip(a, b):
+                yield z[0]
+                yield z[1]
+
+        self.assertSourceEqual(f, result)
+        self.assertListEqual(list(f()), [1, 10, 2, 20])
