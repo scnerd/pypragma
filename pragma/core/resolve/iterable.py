@@ -60,6 +60,26 @@ def _resolve_iterable_set_or_dict(node, ctxt):
     return iter(set(vals))
 
 
+def _resolve_mappable_keysvaluesitems(node, ctxt):
+    ''' Resolves things like dct.keys() and dct.items()
+        if the keys of the dct are all literals
+    '''
+    if not isinstance(node.func, ast.Attribute):
+        return node
+    base_obj = resolve_literal(node.func.value, ctxt, give_raw_result=True)
+    if isinstance(base_obj, ast.AST):
+        return node
+    if node.func.attr == 'keys':
+        return tuple(base_obj.keys())
+    elif node.func.attr == 'values':
+        return tuple(base_obj.values())
+    elif node.func.attr == 'items':
+        return tuple(base_obj.items())
+    else:
+        log.debug('Could not resolve {} of {} as map iterator'.format(node.func.attr, base_obj))  #  deepcode ignore W1202
+        return node
+
+
 def _resolve_iterable_list_or_tuple(node, ctxt):
     return node.elts
 
@@ -99,6 +119,10 @@ def _resolve_iterable(node, ctxt):
         return _resolve_iterable_binop(node, ctxt)
 
     elif isinstance(node, ast.Call):
+        if isinstance(node.func, ast.Attribute):
+            result = _resolve_mappable_keysvaluesitems(node, ctxt)
+            if result != node:
+                return result
         return _resolve_iterable_call(node, ctxt)
 
     elif isinstance(node, (ast.Set, ast.Dict)):

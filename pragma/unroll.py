@@ -1,4 +1,8 @@
-from .core import *
+import ast
+import copy
+import logging
+import warnings
+from .core import TrackedContextTransformer, make_function_transformer, make_ast_from_literal
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +65,7 @@ class UnrollTransformer(TrackedContextTransformer):
             try:
                 val = make_ast_from_literal(val)
             except TypeError:
-                log.debug("Failed to unroll loop, {} failed to convert to AST".format(val))
+                log.debug("Failed to unroll loop, %s failed to convert to AST", val)
                 return self.generic_visit(node)
             self.loop_vars.append(set(self.assign(node.target, val)))
             for body_node in copy.deepcopy(node.body):
@@ -91,6 +95,13 @@ class UnrollTransformer(TrackedContextTransformer):
                 return self.ctxt[node.id]
             raise NameError("'{}' not defined in context".format(node.id))
         return node
+
+    def visit_Subscript(self, node):
+        # resolve only if node is an ast.Name in our loop_vars
+        if (isinstance(node.value, ast.Name) and isinstance(node.value.ctx, ast.Load)
+                and self.loop_vars and node.value.id in set.union(*self.loop_vars)):
+            return self.resolve_literal(self.generic_visit(node))
+        return self.generic_visit(node)
 
 
 # Unroll literal loops
