@@ -3,6 +3,7 @@
 from textwrap import dedent
 from unittest import SkipTest
 import sys
+import math
 
 import pragma
 from .test_pragma import PragmaTest
@@ -525,4 +526,110 @@ class TestUnroll(PragmaTest):
             p[2] = 5
         '''
         self.assertSourceEqual(f, result)
+
+    def test_targeted_unroll(self):
+        a = [1, 2]
+        b = [3, 4]
+
+        @pragma.unroll(unroll_targets=['elem'])
+        def f():
+            for q in a:
+                yield q
+            for elem in b:
+                yield elem
+
+        result = '''
+        def f():
+            for q in a:
+                yield q
+            yield 3
+            yield 4
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_manual_tier(self):
+        # pragma.unroll does not unroll a subloop for you, but you can do it manually like this
+        a = list(range(0, 7))
+        n_inners = 2
+
+        n_outers = math.floor(len(a) / n_inners)
+        remainder = len(a) % n_inners
+
+        @pragma.unroll(unroll_targets=['i1'])
+        @pragma.collapse_literals()
+        def f():
+            for iouter in range(n_outers):
+                for i1 in range(n_inners):
+                    yield a[iouter * n_inners + i1]
+            for i1 in range(remainder):
+                yield a[n_outers * n_inners + i1]
+
+        result = '''
+        def f():
+            for iouter in range(3):
+                yield a[iouter * 2 + 0]
+                yield a[iouter * 2 + 1]
+            yield a[6 + 0]
+        '''
+        self.assertSourceEqual(f, result)
+        self.assertEqual(list(f()), a)
+
+        @pragma.unroll(unroll_targets=['i1'])
+        @pragma.collapse_literals()
+        def f():
+            for iouter in range(0, n_inners * n_outers, n_inners):
+                for i1 in range(n_inners):
+                    yield a[iouter + i1]
+            for i1 in range(remainder):
+                yield a[n_inners * n_outers + i1]
+
+        result = '''
+        def f():
+            for iouter in range(0, 6, 2):
+                yield a[iouter + 0]
+                yield a[iouter + 1]
+            yield a[6 + 0]
+        '''
+        self.assertSourceEqual(f, result)
+        self.assertEqual(list(f()), a)
+
+    def test_autotier_basic(self):
+        a = list(range(0, 7))
+
+        @pragma.unroll(unroll_info=('PRAGMArange', len(a), 2))
+        def f():
+            for i in PRAGMArange:
+                yield a[i]
+
+        result = '''
+        def f():
+            for PRAGMA_iouter in [0, 2, 4]:
+                yield a[PRAGMA_iouter + 0]
+                yield a[PRAGMA_iouter + 1]
+            yield a[6]
+        '''
+        self.assertSourceEqual(f, result)
+        self.assertEqual(list(f()), a)
+
+    def test_autotier_allremainder(self):
+        a = list(range(0, 7))
+
+        for L in [4, 7, 100]:
+            @pragma.unroll(unroll_info=('PRAGMArange', len(a), L))
+            def f():
+                for i in PRAGMArange:
+                    yield a[i]
+
+            result = '''
+            def f():
+                yield a[0]
+                yield a[1]
+                yield a[2]
+                yield a[3]
+                yield a[4]
+                yield a[5]
+                yield a[6]
+            '''
+            self.assertSourceEqual(f, result)
+            self.assertEqual(list(f()), a)
 
