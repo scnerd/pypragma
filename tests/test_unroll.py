@@ -459,3 +459,70 @@ class TestUnroll(PragmaTest):
 
         self.assertSourceEqual(f, result)
         self.assertListEqual(list(f()), [1, 10, 2, 20])
+
+    def test_unroll_into_subscriptassign(self):
+        a = (1, 3)
+        x = 1  # make sure that this does not collapse
+
+        @pragma.unroll
+        def f():
+            for elem in a:
+                p[elem] = 5
+                p[x] += x
+
+        result = '''
+        def f():
+            p[1] = 5
+            p[x] += x
+            p[3] = 5
+            p[x] += x
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_simple_unrolldeindex(self):
+        # to demonstrate exactly what deindex does, this list has non-primitive dicts, but they are *always* subscripted to resolve to literals
+        # That means you don't need pragma.deindex or pragma.collapse_literals
+        a = [{'a': 1}, {'a': 2}]
+        @pragma.unroll
+        def f():
+            for elem in a:
+                yield elem['a']
+
+        result = '''
+        def f():
+            yield 1
+            yield 2
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_complex_unrolldeindex(self):
+        # This one has elements that are either not deindexed in the function or that fail to resolve a deindex
+        # how do we handle key errors?
+        a = [
+            1,  # this clearly fails to deindex, but we substitute the literal anyways
+            object(),  # it is unknown if this can deindex, so we substitute the Name 'a_1'
+            {'b': 2}  # this will work. it will collapse all the way, even on the left hand side
+        ]
+
+        @pragma.unroll
+        @pragma.deindex(a, 'a', collapse_iterables=True)
+        def f():
+            for elem in a:
+                yield elem  # not deindexed
+                yield elem['b']  # fails to resolve except when elem == {'b': 2}
+                p[elem['b']] = 5
+
+        result = '''
+        def f():
+            yield 1
+            yield 1['b']
+            p[1['b']] = 5
+            yield a_1
+            yield a_1['b']
+            p[a_1['b']] = 5
+            yield {'b': 2}
+            yield 2
+            p[2] = 5
+        '''
+        self.assertSourceEqual(f, result)
+
