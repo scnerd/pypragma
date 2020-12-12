@@ -567,6 +567,31 @@ class TestCollapseLiterals(PragmaTest):
         '''
         self.assertSourceEqual(f, result)
 
+
+    def test_logical_deduction(self):
+        @pragma.collapse_literals
+        def f(x):
+            yield x or True
+            if x and False:
+                unreachable
+            if x or 10:
+                yield 2
+            if 0 or x:
+                yield 3
+            if x or x or x or x:
+                yield 4
+
+        result = '''
+        def f(x):
+            yield 1
+            yield 2
+            if x:
+                yield 3
+            if x:
+                yield 4
+        '''
+        self.assertSourceEqual(f, result)
+
     def test_mathematical_deduction(self):
         @pragma.collapse_literals
         def f(x):

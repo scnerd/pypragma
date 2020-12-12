@@ -104,6 +104,8 @@ def _resolve_literal(node, ctxt):
         return resolve_literal_unop(node, ctxt)
     elif isinstance(node, ast.BinOp):
         return resolve_literal_binop(node, ctxt)
+    elif isinstance(node, ast.BoolOp):
+        return resolve_literal_boolop(node, ctxt)
     elif isinstance(node, ast.Compare):
         return resolve_literal_compare(node, ctxt)
     elif isinstance(node, ast.Call):
@@ -254,6 +256,54 @@ def resolve_literal_binop(node, ctxt):
         right = resolve_literal(node.right, ctxt)
 
         return ast.BinOp(left=left, right=right, op=node.op)
+
+
+def _is_literal_true(x):
+    return x is True or (isinstance(x, int) and bool(x) is True)
+
+def _is_literal_false(x):
+    return x is False or (isinstance(x, int) and bool(x) is False)
+
+@_log_call
+def resolve_literal_boolop(node, ctxt):
+    if not isinstance(node.op, (ast.And, ast.Or)):
+        warnings.warn("Unrecognized BoolOp. Should be And or Or, but got {}".format(node.op))
+        return node
+    values = [_resolve_literal(vast, ctxt) for vast in node.values]
+    new_values = []
+    for val in values:
+        if isinstance(node.op, ast.Or):
+            if _is_literal_true(val):  # x + 1 = 1
+                return True
+            elif _is_literal_false(val):  # x + 0 = x
+                continue
+        elif isinstance(node.op, ast.And):
+            if _is_literal_true(val):  # x * 1 = x
+                continue
+            elif _is_literal_false(val):  # x * 0 = 0
+                return False
+        for already_accounted in new_values:  # x + x = x
+            try:
+                # AST equality is challenging. Right now, this only works with name constants
+                if val.id == already_accounted.id:
+                    break
+            except AttributeError:
+                pass
+        else:
+            new_values.append(val)
+    # Case where everything was literal
+    if len(new_values) == 0:
+        if isinstance(node.op, ast.Or):
+            return False
+        elif isinstance(node.op, ast.And):
+            return True
+    # Case where we got it down to one, so the BoolOp can go away
+    elif len(new_values) == 1:
+        return new_values[0]
+    # Case where we still need BoolOp
+    else:
+        node.values = new_values
+        return node
 
 
 @_log_call
