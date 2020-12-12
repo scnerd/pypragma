@@ -596,7 +596,7 @@ class TestUnroll(PragmaTest):
     def test_autotier_basic(self):
         a = list(range(0, 7))
 
-        @pragma.unroll(unroll_info=('PRAGMArange', len(a), 2))
+        @pragma.unroll(unroll_in_tiers=('PRAGMArange', len(a), 2))
         def f():
             for i in PRAGMArange:
                 yield a[i]
@@ -615,7 +615,7 @@ class TestUnroll(PragmaTest):
         a = list(range(0, 7))
 
         for L in [4, 7, 100]:
-            @pragma.unroll(unroll_info=('PRAGMArange', len(a), L))
+            @pragma.unroll(unroll_in_tiers=('PRAGMArange', len(a), L))
             def f():
                 for i in PRAGMArange:
                     yield a[i]

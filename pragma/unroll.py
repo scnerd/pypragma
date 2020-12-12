@@ -29,7 +29,7 @@ class UnrollTransformer(TrackedContextTransformer):
         super().__init__(*args, **kwargs)
         self.loop_vars = []
         self.unroll_targets = None
-        self.unroll_info = None
+        self.unroll_in_tiers = None
 
     def _names(self, node):
         if isinstance(node, ast.Name):
@@ -42,8 +42,10 @@ class UnrollTransformer(TrackedContextTransformer):
                 "Not sure how to handle {} in a for loop target list yet".format(astor.to_source(node).strip()))
 
     def visit_For(self, node):
-        if self.unroll_info is not None:
-            var, N, n_inner = self.unroll_info
+        if self.unroll_in_tiers is not None:
+            var, N, n_inner = self.unroll_in_tiers
+            if n_inner is None:
+                n_inner = 1
             if isinstance(node.iter, ast.Name) and node.iter.id == var:
                 return self._visit_ForTiered(node)
             else:
@@ -117,7 +119,7 @@ class UnrollTransformer(TrackedContextTransformer):
         return result
 
     def _visit_ForTiered(self, node):
-        var, N, n_inner = self.unroll_info
+        var, N, n_inner = self.unroll_in_tiers
         n_outer = math.floor(N / n_inner)
         outer_iterable = list(range(0, n_inner * n_outer, n_inner))
         inner_iterable = list(range(n_inner))
