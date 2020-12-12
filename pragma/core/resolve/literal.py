@@ -221,6 +221,34 @@ def resolve_literal_binop(node, ctxt):
                 " Error was:\n{}".format(traceback.format_exc()))
             return node
     else:
+        if lliteral or rliteral:
+            for operand, other_operand in zip([left, right], [right, left]):
+                if isinstance(operand, ast.AST):
+                    continue
+
+                # Math deduction (symmetric)
+                if (isinstance(node.op, ast.Add)
+                        and operand == 0):
+                    return other_operand
+                if isinstance(node.op, ast.Mult):
+                    if operand == 0:
+                        return 0
+                    if operand == 1:
+                        return other_operand
+                    if operand == -1:
+                        return ast.UnaryOp(ast.USub(), operand=other_operand)
+            # Math deduction (asymmetric)
+            if (isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Pow, ast.Mod))
+                    and left == 0):
+                return 0
+            if (isinstance(node.op, (ast.Div, ast.Pow))
+                    and right == 1):
+                return left
+            if (isinstance(node.op, ast.Sub) and left == 0):
+                return ast.UnaryOp(ast.USub(), operand=right)
+            if (isinstance(node.op, ast.Sub) and right == 0):
+                return left
+
         # Get the best resolution of the left and right, as AST nodes
         left = resolve_literal(node.left, ctxt)
         right = resolve_literal(node.right, ctxt)

@@ -566,3 +566,20 @@ class TestCollapseLiterals(PragmaTest):
             x = a
         '''
         self.assertSourceEqual(f, result)
+
+    def test_mathematical_deduction(self):
+        @pragma.collapse_literals
+        def f(x):
+            yield (x / 1) + 0
+            yield 0 - x
+            yield 0 * (x ** 2 + 3*x - 2)
+            yield 0 % x
+
+        result = '''
+        def f(x):
+            yield x
+            yield -x
+            yield 0
+            yield 0
+        '''
+        self.assertSourceEqual(f, result)

@@ -604,7 +604,7 @@ class TestUnroll(PragmaTest):
         result = '''
         def f():
             for PRAGMA_iouter in [0, 2, 4]:
-                yield a[PRAGMA_iouter + 0]
+                yield a[PRAGMA_iouter]
                 yield a[PRAGMA_iouter + 1]
             yield a[6]
         '''
