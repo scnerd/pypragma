@@ -121,7 +121,7 @@ class UnrollTransformer(TrackedContextTransformer):
     def _visit_ForTiered(self, node):
         var, N, n_inner = self.unroll_in_tiers
         n_outer = math.floor(N / n_inner)
-        outer_iterable = list(range(0, n_inner * n_outer, n_inner))
+        outer_iterable = range(0, n_inner * n_outer, n_inner)
         inner_iterable = list(range(n_inner))
         remainder_iterable = list(range(N % n_inner))
 
@@ -137,7 +137,11 @@ class UnrollTransformer(TrackedContextTransformer):
                                  target=node.target, body=node.body, orelse=[])
         remainder_node = self._visit_ForFlat(remainder_node, offset=n_outer * n_inner)
 
-        outer_node = ast.For(iter=make_ast_from_literal(outer_iterable),
+        ast_range_fun = ast.Name('range', ctx=ast.Load())
+        ast_range_args = [ast.Num(outer_iterable.start), ast.Num(outer_iterable.stop), ast.Num(outer_iterable.step)]
+        ast_range_call = ast.Call(ast_range_fun, args=ast_range_args, keywords=[])
+
+        outer_node = ast.For(iter=ast_range_call,
                              target=ast.Name(id='PRAGMA_iouter', ctx=ast.Store()), body=inner_node, orelse=[])
 
         if isinstance(remainder_node, list):
