@@ -172,6 +172,8 @@ class UnrollTransformer(TrackedContextTransformer):
                 return
             new_val = self.visit(old_val)
             setattr(target.slice, attr, new_val)
+
+        target.value = self.generic_visit(target.value)
         if isinstance(target.slice, ast.Index):
             resolve_attr_of_slice('value')
         elif isinstance(target.slice, ast.Slice):
