@@ -26,10 +26,10 @@ def has_break(node):
 # noinspection PyPep8Naming
 class UnrollTransformer(TrackedContextTransformer):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.loop_vars = []
         self.unroll_targets = None
         self.unroll_in_tiers = None
+        super().__init__(*args, **kwargs)
+        self.loop_vars = []
 
     def _names(self, node):
         if isinstance(node, ast.Name):

@@ -370,6 +370,10 @@ def make_function_transformer(transformer_type, name, description, **transformer
         :type collapse_iterables: bool
         :param explicit_only: Whether to use global variables or just keyword and function_globals in the replacement context
         :type explicit_only: bool
+        :param unroll_targets: Explicit names of targets to unroll. If none, all loops will be unrolled.
+        :type unroll_targets: str|list|None
+        :param unroll_in_tiers: Information about unrolling in tiers: (iterable_name, length_of_loop, number_of_inner_iterations)
+        :type unroll_in_tiers: tuple|None
         :param kwargs: Any other environmental variables to provide during unrolling
         :type kwargs: dict
         :return: The transformed function, or its source code if requested

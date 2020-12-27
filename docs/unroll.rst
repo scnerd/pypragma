@@ -100,6 +100,26 @@ The ``unroll`` decorator accomplishes this by parsing the input function, perfor
         yield 1, 3
         yield 2, 5
 
+Partial unrolling and targeted unrolling are supported. ``unroll_targets`` lets you explicitly specify which loops should be unrolled. This is useful in functions with several loops that should behave differently. ``unroll_in_tiers`` is a performance measure for reducing overhead in loop calls. It is a tuple of ``(iterable_name, length_of_loop, number_of_inner_iterations)``, where ``iterable_name`` specifies what to unroll, ``length_of_loop`` is how many iterations in total, and ``number_of_inner_iterations`` is the number of explicit repetitions of the inside of the loop before reaching the end of the new loop. ::
+
+    a = list(range(0, 7))
+
+    @pragma.unroll(unroll_in_tiers=('PRAGMArange', len(a), 2))
+    def f():
+        for i in PRAGMArange:
+            yield a[i]
+
+    # ... Becomes ...
+
+    def f():
+        for PRAGMA_iouter in range(0, 6, 2):
+            yield a[PRAGMA_iouter]
+            yield a[PRAGMA_iouter + 1]
+        yield a[6]
+
+In that example, ``pragma`` handled a single remainder call because the length of the iterable was odd, while the step was 2.
+
+
 When combined with ``deindex``, ``unroll`` can also handle cases where the values being iterated over are not literals. The decorators must be in this order (deindex being applied before unroll), and the ``collapse_iterables`` argument is necessary::
 
     d = {'a': object(), 'b': object()}
