@@ -498,7 +498,6 @@ class TestUnroll(PragmaTest):
 
     def test_complex_unrolldeindex(self):
         # This one has elements that are either not deindexed in the function or that fail to resolve a deindex
-        # how do we handle key errors?
         a = [
             1,  # this clearly fails to deindex, but we substitute the literal anyways
             object(),  # it is unknown if this can deindex, so we substitute the Name 'a_1'
@@ -526,6 +525,29 @@ class TestUnroll(PragmaTest):
             p[2] = 5
         '''
         self.assertSourceEqual(f, result)
+
+    def test_unroll_doubledeindex(self):
+        a = [{'b': 2}, {'b': 3}]
+
+        @pragma.unroll
+        def f():
+            for elem in a:
+                yield p[elem['b']]
+                p[elem['b']][x, y] = 5
+                yield p[1 + 1]  # don't collapse this
+
+        result = '''
+        def f():
+            yield p[2]
+            p[2][x, y] = 5
+            yield p[1 + 1]
+            yield p[3]
+            p[3][x, y] = 5
+            yield p[1 + 1]
+        '''
+        self.assertSourceEqual(f, result)
+
+
 
     def test_targeted_unroll(self):
         a = [1, 2]

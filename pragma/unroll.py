@@ -137,9 +137,9 @@ class UnrollTransformer(TrackedContextTransformer):
                                  target=node.target, body=node.body, orelse=[])
         remainder_node = self._visit_ForFlat(remainder_node, offset=n_outer * n_inner)
 
-        ast_range_fun = ast.Name('range', ctx=ast.Load())
+        ast_range_fun = ast.Name(id='range', ctx=ast.Load())
         ast_range_args = [ast.Num(outer_iterable.start), ast.Num(outer_iterable.stop), ast.Num(outer_iterable.step)]
-        ast_range_call = ast.Call(ast_range_fun, args=ast_range_args, keywords=[])
+        ast_range_call = ast.Call(func=ast_range_fun, args=ast_range_args, keywords=[])
 
         outer_node = ast.For(iter=ast_range_call,
                              target=ast.Name(id='PRAGMA_iouter', ctx=ast.Store()), body=inner_node, orelse=[])
@@ -172,6 +172,8 @@ class UnrollTransformer(TrackedContextTransformer):
                 return
             new_val = self.visit(old_val)
             setattr(target.slice, attr, new_val)
+
+        target.value = self.generic_visit(target.value)
         if isinstance(target.slice, ast.Index):
             resolve_attr_of_slice('value')
         elif isinstance(target.slice, ast.Slice):
