@@ -427,8 +427,8 @@ def make_function_transformer(transformer_type, name, description, **transformer
                     # When there are other decorators, the co_firstlineno of *some* python distributions gets confused
                     # and thinks they will be there even when they are not written to the file, causing readline overflow
                     # So we put some empty lines to make them align
-                    temp.write('\n' * func.__code__.co_firstlineno)
                     temp.write(source)
+                    temp.write('\n' * func.__code__.co_firstlineno)
                     temp.flush()
                     temp.close()
                 return func
