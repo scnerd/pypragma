@@ -43,7 +43,7 @@ If a branch is constant, and thus known at decoration time, then only the correc
 
 This decorator is actually very powerful, understanding any definition-time known collections, primitives, or even dictionaries. Subscripts are resolved if the list or dictionary, and the key into it, can be resolved. Names are replaced by their values if they are not containers (since re-writing a container, such as a tuple or list, could duplicate object references). Functions, such as ``len`` and ``sum`` can be computed and replaced with their value if their arguments are known.
 
-Only primitive types are resolved, and this does not include iterable types. To control this behavior, use the `collapse_iterables` argument. Example:
+Only primitive types are resolved, and this does not include iterable types. To control this behavior, use the ``collapse_iterables`` argument. Example::
 
     v = [1, 2]
 
@@ -62,7 +62,9 @@ Only primitive types are resolved, and this does not include iterable types. To 
     def f():
         yield [1, 2]
 
-There are cases where you don't want to collapse all literals. It often happens when you have lots of global variables and long functions, or if you want to apply different pragma patterns to different parts of the function. Fine control is possible with the `explicit_only` argument. When True, only explicit keyword arguments and the value of the `function_globals` argument (itself a dictionary) are collapsed.
+There are cases where you don't want to collapse all literals. It often happens when you have lots of global variables and long functions, or if you want to apply different pragma patterns to different parts of the function. Fine control is possible with the ``explicit_only`` argument. When True, only explicit keyword arguments and the value of the ``function_globals`` argument (itself a dictionary) are collapsed.
+
+``pragma`` is capable of logical and mathematical deduction, meaning that expressions with unknowns can be collapsed if the known elements determine the result. For example, ``False and anything`` is logically equivalent to ``False``. ``True or anything`` is always ``True``. Mathematical: ``anything ** 0`` -> ``1``. ``0 * anything`` -> ``0``.
 
 .. todo:: Always commit changes within a block, and only mark values as non-deterministic outside of conditional blocks
 .. todo:: Support list/set/dict comprehensions
