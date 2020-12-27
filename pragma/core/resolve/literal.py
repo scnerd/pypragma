@@ -292,7 +292,7 @@ def resolve_literal_boolop(node, ctxt):
         else:
             new_values.append(val)
     # Case where everything was literal
-    if len(new_values) == 0:
+    if not new_values:
         if isinstance(node.op, ast.Or):
             return False
         elif isinstance(node.op, ast.And):

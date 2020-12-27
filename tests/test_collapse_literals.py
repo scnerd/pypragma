@@ -1,5 +1,6 @@
 # file deepcode ignore E0602: Ignore undefined variables because they never go live if just converting function string
 # file deepcode ignore E0102: Ignore function names that are redefined, such as f(x)
+# file deepcode ignore W0104: Ignore no effects
 from textwrap import dedent
 
 import pragma

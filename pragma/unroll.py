@@ -43,7 +43,10 @@ class UnrollTransformer(TrackedContextTransformer):
 
     def visit_For(self, node):
         if self.unroll_in_tiers is not None:
-            var, N, n_inner = self.unroll_in_tiers
+            try:
+                var, N, n_inner = self.unroll_in_tiers
+            except ValueError as err:
+                raise ValueError("Invalid specification of unroll_in_tiers: should be tuple(str, int, int)") from err
             if n_inner is None:
                 n_inner = 1
             if isinstance(node.iter, ast.Name) and node.iter.id == var:
