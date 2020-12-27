@@ -247,7 +247,7 @@ def resolve_literal_binop(node, ctxt):
                     and right == 1):
                 return left
             if (isinstance(node.op, ast.Sub) and left == 0):
-                return ast.UnaryOp(ast.USub(), operand=right)
+                return ast.UnaryOp(op=ast.USub(), operand=right)
             if (isinstance(node.op, ast.Sub) and right == 0):
                 return left
 
