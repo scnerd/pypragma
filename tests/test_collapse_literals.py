@@ -1,3 +1,6 @@
+# file deepcode ignore E0602: Ignore undefined variables because they never go live if just converting function string
+# file deepcode ignore E0102: Ignore function names that are redefined, such as f(x)
+# file deepcode ignore W0104: Ignore no effects
 from collections import namedtuple
 from textwrap import dedent
 
@@ -328,6 +331,22 @@ class TestCollapseLiterals(PragmaTest):
         self.assertSourceEqual(f, result)
         self.assertEqual(f(5), 15)
 
+    def test_pdb_funcs(self):
+        @pragma.collapse_literals
+        def f(x):
+            breakpoint()
+            import pdb
+            pdb.set_trace()
+
+        result = '''
+        def f(x):
+            breakpoint()
+            import pdb
+            pdb.set_trace()
+        '''
+
+        self.assertSourceEqual(f, result)
+
     # # Implement the functionality to get this test to pass
     # def test_assign_to_iterable(self):
     #     @pragma.collapse_literals(return_source=True)
@@ -543,6 +562,20 @@ class TestCollapseLiterals(PragmaTest):
         self.assertSourceEqual(f, result)
         self.assertSourceEqual(pragma.collapse_literals(f), result)
 
+    def test_slice_assign_(self):
+        a = [1]
+        @pragma.collapse_literals
+        def f():
+            x[a[0]] = 0
+            x[a[0]][a, b] = 1
+
+        result = '''
+        def f():
+            x[1] = 0
+            x[1][a, b] = 1
+        '''
+        self.assertSourceEqual(f, result)
+
     def test_explicit_collapse(self):
         a = 2
         b = 3
@@ -655,5 +688,71 @@ class TestCollapseLiterals(PragmaTest):
             q = 0, 0
             r = oa.bark
             s = 0
+        '''
+
+    def test_logical_deduction(self):
+        @pragma.collapse_literals
+        def f(x):
+            yield x or True
+            if x and False:
+                unreachable
+            if x or 10:
+                yield 2
+            if 0 or x:
+                yield 3
+            if x or x or x or x:
+                yield 4
+
+        result = '''
+        def f(x):
+            yield 1
+            yield 2
+            if x:
+                yield 3
+            if x:
+                yield 4
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_mathematical_deduction(self):
+        @pragma.collapse_literals
+        def f(x):
+            yield (x / 1) + 0
+            yield 0 - x
+            yield 0 * (x ** 2 + 3*x - 2)
+            yield 0 % x
+
+        result = '''
+        def f(x):
+            yield x
+            yield -x
+            yield 0
+            yield 0
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_collapse_InOp(self):
+        lst = ['a', 'b', object()]
+        dct = dict(a=1, b=2)
+
+        @pragma.collapse_literals()
+        def f():
+            if 'a' in lst:
+                yield 0
+            if 'v' in lst:
+                unreachable
+            if 'b' not in lst:
+                unreachable
+            yield dct['a']
+            if 'b' in dct:
+                yield 2
+            # if 2 in dct.values():  # TODO: support this. Problem is that values is not a pure function.
+            #     yield 2
+
+        result = '''
+        def f():
+            yield 0
+            yield 1
+            yield 2
         '''
         self.assertSourceEqual(f, result)

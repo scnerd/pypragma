@@ -358,7 +358,7 @@ class TrackedContextTransformer(DebugTransformerMixin, ast.NodeTransformer):
 def make_function_transformer(transformer_type, name, description, **transformer_kwargs):
     @optional_argument_decorator
     @magic_contract
-    def transform(return_source=False, save_source=True, function_globals=None, collapse_iterables=False, explicit_only=False, **kwargs):
+    def transform(return_source=False, save_source=True, function_globals=None, collapse_iterables=False, explicit_only=False, unroll_targets=None, unroll_in_tiers=None, **kwargs):
         """
         :param return_source: Returns the transformed function's source code instead of compiling it
         :type return_source: bool
@@ -370,6 +370,10 @@ def make_function_transformer(transformer_type, name, description, **transformer
         :type collapse_iterables: bool
         :param explicit_only: Whether to use global variables or just keyword and function_globals in the replacement context
         :type explicit_only: bool
+        :param unroll_targets: Explicit names of targets to unroll. If none, all loops will be unrolled.
+        :type unroll_targets: str|list|None
+        :param unroll_in_tiers: Information about unrolling in tiers: (iterable_name, length_of_loop, number_of_inner_iterations)
+        :type unroll_in_tiers: tuple|None
         :param kwargs: Any other environmental variables to provide during unrolling
         :type kwargs: dict
         :return: The transformed function, or its source code if requested
@@ -396,6 +400,8 @@ def make_function_transformer(transformer_type, name, description, **transformer
             # print({k: v for k, v in glbls.items() if k not in globals()})
             trans = transformer_type(DictStack(glbls, kwargs), **transformer_kwargs)
             trans.collapse_iterables = collapse_iterables
+            trans.unroll_targets = unroll_targets
+            trans.unroll_in_tiers = unroll_in_tiers
             f_mod.body[0].decorator_list = []
             f_mod = trans.visit(f_mod)
             # print(astor.dump_tree(f_mod))
@@ -421,8 +427,8 @@ def make_function_transformer(transformer_type, name, description, **transformer
                     # When there are other decorators, the co_firstlineno of *some* python distributions gets confused
                     # and thinks they will be there even when they are not written to the file, causing readline overflow
                     # So we put some empty lines to make them align
-                    temp.write('\n' * func.__code__.co_firstlineno)
                     temp.write(source)
+                    temp.write('\n' * func.__code__.co_firstlineno)
                     temp.flush()
                     temp.close()
                 return func

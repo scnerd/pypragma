@@ -13,7 +13,10 @@ log = logging.getLogger(__name__)
 
 _builtin_funcs = inspect.getmembers(builtins, lambda o: callable(o))
 pure_functions = {func for name, func in _builtin_funcs} - {print, delattr, exec, eval, input, open, setattr, super}
-
+try:
+    pure_functions.discard(breakpoint)
+except NameError:
+    pass
 
 # In python 3.8, namedtuple accessors changed from properties to low-level _tuplegetter objects
 try:
@@ -90,6 +93,8 @@ _collapse_map = {
     ast.LtE: lambda a, b: a <= b,
     ast.Gt: lambda a, b: a > b,
     ast.GtE: lambda a, b: a >= b,
+    ast.In: lambda a, b: a in b,
+    ast.NotIn: lambda a, b: a not in b,
 }
 
 try:
@@ -103,13 +108,13 @@ except ImportError:  # pragma: nocover
     float_types = (float,)
 
 primitive_types = tuple([str, bytes, bool, type(None)] + list(num_types) + list(float_types))
-iterable_types = (list, tuple)
+iterable_types = (list, tuple, dict)
 
 try:
     primitive_ast_types = (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Constant, ast.JoinedStr)
 except AttributeError:  # Python <3.6
     primitive_ast_types = (ast.Num, ast.Str, ast.Bytes, ast.NameConstant)
-iterable_ast_types = (ast.List, ast.Tuple)
+iterable_ast_types = (ast.List, ast.Tuple, ast.Dict)
 
 
 def make_binop(op):
