@@ -84,7 +84,7 @@ def _resolve_literal(node, ctxt):
     # except:
     #     print("Trying to collapse (source not possible) {}".format(astor.dump_tree(node)))
 
-    if isinstance(node, (ast.Name, ast.NameConstant, ast.Attribute)):
+    if isinstance(node, (ast.Name, ast.Attribute, ast.NameConstant)):
         return resolve_literal_name(node, ctxt)
     elif isinstance(node, ast.Num):
         return node.n
