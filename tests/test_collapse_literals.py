@@ -637,3 +637,29 @@ class TestCollapseLiterals(PragmaTest):
             yield 0
         '''
         self.assertSourceEqual(f, result)
+
+    def test_collapse_InOp(self):
+        lst = ['a', 'b', object()]
+        dct = dict(a=1, b=2)
+
+        @pragma.collapse_literals()
+        def f():
+            if 'a' in lst:
+                yield 0
+            if 'v' in lst:
+                unreachable
+            if 'b' not in lst:
+                unreachable
+            yield dct['a']
+            if 'b' in dct:
+                yield 2
+            # if 2 in dct.values():  # TODO: support this. Problem is that values is not a pure function.
+            #     yield 2
+
+        result = '''
+        def f():
+            yield 0
+            yield 1
+            yield 2
+        '''
+        self.assertSourceEqual(f, result)

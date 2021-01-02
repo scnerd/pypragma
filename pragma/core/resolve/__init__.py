@@ -75,6 +75,8 @@ _collapse_map = {
     ast.LtE: lambda a, b: a <= b,
     ast.Gt: lambda a, b: a > b,
     ast.GtE: lambda a, b: a >= b,
+    ast.In: lambda a, b: a in b,
+    ast.NotIn: lambda a, b: a not in b,
 }
 
 try:
