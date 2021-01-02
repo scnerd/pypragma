@@ -13,7 +13,10 @@ log = logging.getLogger(__name__)
 
 _builtin_funcs = inspect.getmembers(builtins, lambda o: callable(o))
 pure_functions = {func for name, func in _builtin_funcs} - {print, delattr, exec, eval, input, open, setattr, super}
-
+try:
+    pure_functions.discard(breakpoint)
+except NameError:
+    pass
 
 @_log_call
 @magic_contract
@@ -76,6 +79,8 @@ _collapse_map = {
     ast.LtE: lambda a, b: a <= b,
     ast.Gt: lambda a, b: a > b,
     ast.GtE: lambda a, b: a >= b,
+    ast.In: lambda a, b: a in b,
+    ast.NotIn: lambda a, b: a not in b,
 }
 
 try:
