@@ -330,6 +330,21 @@ class TestCollapseLiterals(PragmaTest):
         self.assertSourceEqual(f, result)
         self.assertEqual(f(5), 15)
 
+    def test_pdb_funcs(self):
+        @pragma.collapse_literals
+        def f(x):
+            breakpoint()
+            import pdb; pdb.set_trace()
+
+        result = '''
+        def f(x):
+            breakpoint()
+            import pdb
+            pdb.set_trace()
+        '''
+
+        self.assertSourceEqual(f, result)
+
     # # Implement the functionality to get this test to pass
     # def test_assign_to_iterable(self):
     #     @pragma.collapse_literals(return_source=True)

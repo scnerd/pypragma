@@ -12,8 +12,7 @@ from .. import _log_call, DictStack, _pretty_str
 log = logging.getLogger(__name__)
 
 _builtin_funcs = inspect.getmembers(builtins, lambda o: callable(o))
-pure_functions = {func for name, func in _builtin_funcs} - {print, delattr, exec, eval, input, open, setattr, super}
-
+pure_functions = {func for name, func in _builtin_funcs} - {print, delattr, exec, eval, input, open, setattr, super, breakpoint}
 
 @_log_call
 @magic_contract
