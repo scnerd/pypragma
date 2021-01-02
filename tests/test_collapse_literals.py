@@ -334,7 +334,8 @@ class TestCollapseLiterals(PragmaTest):
         @pragma.collapse_literals
         def f(x):
             breakpoint()
-            import pdb; pdb.set_trace()
+            import pdb
+            pdb.set_trace()
 
         result = '''
         def f(x):
