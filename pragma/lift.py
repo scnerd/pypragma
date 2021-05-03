@@ -9,6 +9,7 @@ from miniutils import magic_contract, optional_argument_decorator
 
 from .core.resolve import make_ast_from_literal
 from .core.transformer import function_ast
+from .utils import save_or_return_source
 
 log = logging.getLogger(__name__)
 
@@ -158,30 +159,4 @@ class lift:
         )
 
         f_mod.body[0] = new_func_def
-
-        if self.return_source or self.save_source:
-            try:
-                source = astor.to_source(f_mod)
-            except ImportError:  # pragma: nocover
-                raise ImportError("miniutils.pragma.{name} requires 'astor' to be installed to obtain source code"
-                                  .format(name=lift.__name__))
-            except Exception as ex:  # pragma: nocover
-                raise RuntimeError(astor.dump_tree(f_mod)) from ex
-        else:
-            source = None
-
-        if self.return_source:
-            return source
-        else:
-            f_mod = ast.fix_missing_locations(f_mod)
-            if self.save_source:
-                temp = tempfile.NamedTemporaryFile('w', delete=True)
-                f_file = temp.name
-            no_globals = {}
-            exec(compile(f_mod, f_file, 'exec'), no_globals)
-            func = no_globals[f_mod.body[0].name]
-            if self.save_source:
-                func.__tempfile__ = temp
-                temp.write(source)
-                temp.flush()
-            return func
+        return save_or_return_source(f_file, f_mod, {}, self.return_source, self.save_source)
