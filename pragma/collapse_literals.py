@@ -52,7 +52,8 @@ class CollapseTransformer(TrackedContextTransformer):
             resolve_attr_of_slice('upper')
             resolve_attr_of_slice('step')
         else:
-            raise TypeError(type(target.slice))
+            target.slice = self.visit(target.slice)  # The index could be anything in 3.8+
+            # raise TypeError(type(target.slice))
 
     def visit_Assign(self, node):
         for it, target in enumerate(node.targets):

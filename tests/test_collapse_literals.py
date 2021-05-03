@@ -56,6 +56,7 @@ class TestCollapseLiterals(PragmaTest):
         @pragma.collapse_literals
         def f():
             return 2
+
         f = pragma.collapse_literals(f)
 
         result = '''
@@ -165,6 +166,7 @@ class TestCollapseLiterals(PragmaTest):
         # This will never fail, but it causes other tests to fail
         # if it incorrectly moves 'a' from the closure to the module globals
         a = 0
+
         @pragma.collapse_literals
         def f():
             x = a
@@ -172,7 +174,7 @@ class TestCollapseLiterals(PragmaTest):
     def test_side_effects_1effect(self):
         @pragma.collapse_literals
         def f2():
-            for a in range(3): # failure occurs when this is interpreted as "for 0 in range(3)"
+            for a in range(3):  # failure occurs when this is interpreted as "for 0 in range(3)"
                 x = a
 
     def test_iteration_variable(self):
@@ -183,6 +185,7 @@ class TestCollapseLiterals(PragmaTest):
         @pragma.collapse_literals
         def f1():
             x = glbvar
+
         result = '''
         def f1():
             x = 0
@@ -195,6 +198,7 @@ class TestCollapseLiterals(PragmaTest):
         def f2():
             for glbvar in range(3):
                 x = glbvar
+
         result = '''
         def f2():
             for glbvar in range(3):
@@ -503,10 +507,12 @@ class TestCollapseLiterals(PragmaTest):
         self.assertEqual(f(), 4)
 
     def test_assignment_slice(self):
-        i=2
+        i = 2
+
         @pragma.collapse_literals
         def f1(x):
             x[i] = 1
+
         result = '''
         def f1(x):
             x[2] = 1
@@ -517,6 +523,7 @@ class TestCollapseLiterals(PragmaTest):
         def f2(x):
             j = 1
             x[j] += 1
+
         result = '''
         def f2(x):
             j = 1
@@ -532,12 +539,14 @@ class TestCollapseLiterals(PragmaTest):
 
     def test_collapse_slice_with_assign(self):
         a = 1
+
         @pragma.collapse_literals
         def f():
             x = object()
             x[a:4] = 0
             x = 2
             x[x] = 0
+
         result = '''
         def f():
             x = object()
@@ -552,6 +561,7 @@ class TestCollapseLiterals(PragmaTest):
             x = [1, 2, 0]
             x[x[x[0]]] = 3  # transformer loses certainty in literal value of x
             x[x[x[0]]] = 4  # so it is not collapsed here, but this is a nonsensical use case after all
+
         result = '''
         def f():
             x = [1, 2, 0]
@@ -563,6 +573,7 @@ class TestCollapseLiterals(PragmaTest):
 
     def test_slice_assign_(self):
         a = [1]
+
         @pragma.collapse_literals
         def f():
             x[a[0]] = 0
@@ -578,10 +589,12 @@ class TestCollapseLiterals(PragmaTest):
     def test_explicit_collapse(self):
         a = 2
         b = 3
+
         @pragma.collapse_literals(explicit_only=True, b=b)
         def f():
             x = a
             y = b
+
         result = '''
         def f():
             x = a
@@ -592,6 +605,7 @@ class TestCollapseLiterals(PragmaTest):
         @pragma.collapse_literals(explicit_only=True)
         def f():
             x = a
+
         result = '''
         def f():
             x = a
@@ -627,7 +641,7 @@ class TestCollapseLiterals(PragmaTest):
         def f(x):
             yield (x / 1) + 0
             yield 0 - x
-            yield 0 * (x ** 2 + 3*x - 2)
+            yield 0 * (x ** 2 + 3 * x - 2)
             yield 0 % x
 
         result = '''
