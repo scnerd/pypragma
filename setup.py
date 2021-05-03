@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='pragma',
-    version='0.2.4',
+    version='0.2.5',
     packages=['pragma', 'pragma.core', 'pragma.core.resolve'],
     url='https://github.com/scnerd/pypragma',
     license='MIT',
