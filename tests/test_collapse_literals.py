@@ -1,6 +1,7 @@
 # file deepcode ignore E0602: Ignore undefined variables because they never go live if just converting function string
 # file deepcode ignore E0102: Ignore function names that are redefined, such as f(x)
 # file deepcode ignore W0104: Ignore no effects
+from collections import namedtuple
 from textwrap import dedent
 
 import pragma
@@ -611,6 +612,97 @@ class TestCollapseLiterals(PragmaTest):
             x = a
         '''
         self.assertSourceEqual(f, result)
+
+    def test_namedtuple_without_deindex(self):
+        # See test_deindex::test_with_namedtuple for comparison
+        a = [1, 2., object()]  # heterogeneous types in sequence
+        nttyp = namedtuple('nttyp', 'x,y,z')
+        na = nttyp(*a)
+
+        @pragma.collapse_literals
+        def f():
+            q = na[1]  # getitem(literal, literal) -> literal
+            r = na.y  # property.get(literal, literal) -X literal
+            s = 0
+            if na.y == na[1]:
+                s = 1
+            t = na.z  # the result is neither literal nor typeable
+        result = '''
+        def f():
+            q = 2.0
+            r = na.y
+            s = 0
+            if na.y == 2.0:
+                s = 1
+            t = na.z
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_duck_attribute(self):
+        class UserKlass:
+            def __init__(self, quack):
+                self.quack = quack
+
+        oa = UserKlass([0, 0])
+        ob = UserKlass(4)
+
+        @pragma.collapse_literals
+        def f():
+            q = oa.quack  # getattr(literal, literal) -> literal
+            r = ob.quack
+        result = '''
+        def f():
+            q = [0, 0]
+            r = 4
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_property(self):
+        class UserKlass:
+            def __init__(self, quack):
+                self.quack = quack
+                self._bark = 0
+            @property
+            def bark(self):
+                self._bark += 1
+                return self._bark
+
+        oa = UserKlass([0, 0])
+
+        @pragma.collapse_literals
+        def f():
+            q = oa.quack
+            r = oa.bark
+        result = '''
+        def f():
+            q = [0, 0]
+            r = oa.bark
+        '''
+        self.assertSourceEqual(f, result)
+
+    def test_tuple_subclass(self):
+        class UserTuple(tuple):
+            def __init__(self, args):
+                super().__init__()
+                self._bark = 0
+            @property
+            def bark(self):
+                self._bark += 1
+                return self._bark
+
+        oa = UserTuple([0, 0])
+
+        @pragma.collapse_literals(collapse_iterables=True)
+        def f():
+            q = oa
+            r = oa.bark
+            s = oa[0]
+        result = '''
+        def f():
+            q = 0, 0
+            r = oa.bark
+            s = 0
+        '''
 
     def test_logical_deduction(self):
         @pragma.collapse_literals

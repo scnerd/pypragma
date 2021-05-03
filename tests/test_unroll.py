@@ -1,5 +1,6 @@
 # file deepcode ignore E0602: Ignore undefined variables because they never go live if just converting function string
 # file deepcode ignore E0102: Ignore function names that are redefined, such as f(x)
+from collections import namedtuple
 from textwrap import dedent
 from unittest import SkipTest
 import sys
@@ -94,6 +95,28 @@ class TestUnroll(PragmaTest):
             yield 8
         '''
 
+        self.assertSourceEqual(f, result)
+
+    def test_unroll_namedtuple(self):
+        a = [1, 2, 3]
+        nttyp = namedtuple('nttyp', 'x,y,z')
+        na = nttyp(*a)
+
+        @pragma.unroll
+        def f():
+            for i in na:
+                yield i
+            for j in na._fields:
+                yield j
+        result = '''
+        def f():
+            yield 1
+            yield 2
+            yield 3
+            yield 'x'
+            yield 'y'
+            yield 'z'
+        '''
         self.assertSourceEqual(f, result)
 
     def test_unroll_const_list(self):
@@ -654,4 +677,3 @@ class TestUnroll(PragmaTest):
             '''
             self.assertSourceEqual(f, result)
             self.assertEqual(list(f()), a)
-

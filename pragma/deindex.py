@@ -8,6 +8,15 @@ from .collapse_literals import collapse_literals
 log = logging.getLogger(__name__)
 
 
+def _clone_propertyless(nt):
+    ''' Clones a namedtuple, replacing property accessors with literal references.
+        The return is otherwise an instance of the original namedtuple type with the same docstrings and methods
+        This assures pragma that dereferencing them will have no side effects
+    '''
+    new_nttype = type(nt.__class__.__name__ + '_propertyless', (type(nt), ), nt._asdict())
+    return new_nttype(*nt)
+
+
 # Directly reference elements of constant list, removing literal indexing into that list within a function
 @magic_contract
 def deindex(iterable, iterable_name, *args, **kwargs):
@@ -41,11 +50,16 @@ def deindex(iterable, iterable_name, *args, **kwargs):
         internal_iterable = tuple('{}_{}'.format(iterable_name, i) for i, val in enumerate(iterable))
         mapping = {internal_iterable[i]: val for i, val in enumerate(iterable)}
         ast_iterable = tuple(ast.Name(id=name, ctx=ast.Load()) for name in internal_iterable)
-    # attempt to make the ast_iterable the same type as the original, otherwise keep it the builtin type
-    try:
-        ast_iterable = type(iterable)(ast_iterable)
-    except Exception:  #  deepcode ignore W0703: Generic exception
-        pass
+        if isinstance(iterable, tuple) and hasattr(iterable, '_fields'):  # Support namedtuples attribute access
+            ast_namedtuple = type(iterable)(*ast_iterable)
+            ast_propertyless = _clone_propertyless(ast_namedtuple)
+            kwargs[iterable_name] = ast_propertyless
+        else:
+            # attempt to make the ast_iterable the same type as the original, otherwise keep it the builtin type
+            try:
+                ast_iterable = type(iterable)(ast_iterable)
+            except Exception:  #  deepcode ignore W0703: Generic exception
+                pass
     kwargs[iterable_name] = ast_iterable
     mapping[iterable_name] = iterable
 
