@@ -5,3 +5,4 @@ coveralls
 coverage
 nose
 ipython
+bump2version
